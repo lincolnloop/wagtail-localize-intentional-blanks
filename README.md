@@ -2,6 +2,10 @@
 
 A Wagtail library that extends [wagtail-localize](https://github.com/wagtail/wagtail-localize) to allow translators to mark translation segments as "do not translate". These segments count as translated (contributing to progress) but fall back to the source page's value when rendered.
 
+<img width="985" height="236" alt="url_intentionally_blank" src="https://github.com/user-attachments/assets/310c5ad0-780c-43a6-a73f-1783c1d5f30e" />
+<img width="1088" height="230" alt="number_intentionally_blank" src="https://github.com/user-attachments/assets/e9be46c7-86cd-43b7-a0d7-1747714c4bf9" />
+
+
 ## Features
 
 - ✅ **Translator Control**: Translators decide which fields to not translate, not developers
