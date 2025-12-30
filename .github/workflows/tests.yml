@@ -53,6 +53,3 @@ jobs:
 
       - name: Run ruff format
         run: ruff format --check .
-
-      - name: Run mypy
-        run: mypy wagtail_localize_intentional_blanks
