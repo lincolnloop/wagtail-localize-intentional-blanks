@@ -7,7 +7,7 @@ name = "wagtail-localize-intentional-blanks"
 version = "0.1.0"
 description = "Allow translators to mark wagtail-localize segments as 'do not translate'"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Lincoln Loop, LLC", email = "info@lincolnloop.com"}
@@ -24,10 +24,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Internationalization",
 ]
 dependencies = [

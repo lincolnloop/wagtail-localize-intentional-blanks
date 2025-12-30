@@ -138,7 +138,7 @@ print(f"{stats['manually_translated']} segments manually translated")
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+
 - Django 4.2+
 - Wagtail 5.2+
 - wagtail-localize 1.8+
