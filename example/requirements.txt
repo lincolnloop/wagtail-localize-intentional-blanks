@@ -1,0 +1,5 @@
+Django>=4.2,<5.1
+wagtail>=5.2,<7.0
+wagtail-localize>=1.8
+# Install the local development version
+-e ..

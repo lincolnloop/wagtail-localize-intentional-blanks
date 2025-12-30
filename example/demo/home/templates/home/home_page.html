@@ -1,0 +1,39 @@
+{% load wagtailcore_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title }}</title>
+</head>
+<body>
+    <h1>{{ page.title }}</h1>
+
+    {% if page.tagline %}
+    <p class="tagline"><strong>{{ page.tagline }}</strong></p>
+    {% endif %}
+
+    {% if page.body %}
+    <div class="body">
+        {{ page.body|richtext }}
+    </div>
+    {% endif %}
+
+    {% if page.features %}
+    <div class="features">
+        <h2>Features</h2>
+        {% for block in page.features %}
+            {% if block.block_type == 'feature' %}
+                <div class="feature">
+                    <h3>{{ block.value.heading }}</h3>
+                    <p>{{ block.value.paragraph }}</p>
+                    {% if block.value.image_caption %}
+                        <p class="caption"><em>{{ block.value.image_caption }}</em></p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</body>
+</html>

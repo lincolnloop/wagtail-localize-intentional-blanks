@@ -1,0 +1,39 @@
+{% load wagtailcore_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title }}</title>
+</head>
+<body>
+    <article>
+        <h1>{{ page.title }}</h1>
+        <p class="date">{{ page.date }}</p>
+
+        {% if page.intro %}
+        <p class="intro">{{ page.intro }}</p>
+        {% endif %}
+
+        {% if page.body %}
+        <div class="body">
+            {{ page.body|richtext }}
+        </div>
+        {% endif %}
+
+        {% if page.technical_specs %}
+        <div class="technical-specs">
+            <h2>Technical Specifications</h2>
+            <dl>
+            {% for block in page.technical_specs %}
+                {% if block.block_type == 'spec' %}
+                    <dt>{{ block.value.spec_name }}</dt>
+                    <dd>{{ block.value.spec_value }}</dd>
+                {% endif %}
+            {% endfor %}
+            </dl>
+        </div>
+        {% endif %}
+    </article>
+</body>
+</html>

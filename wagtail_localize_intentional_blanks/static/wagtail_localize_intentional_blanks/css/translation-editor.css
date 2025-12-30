@@ -1,0 +1,114 @@
+/**
+ * Styles for Intentional Blanks UI
+ */
+
+/* Checkbox container */
+.do-not-translate-checkbox-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+    vertical-align: middle;
+}
+
+.do-not-translate-checkbox-container:hover {
+    background-color: #f5f5f5;
+}
+
+/* Checkbox styling */
+.do-not-translate-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+    accent-color: #007d7e;
+}
+
+.do-not-translate-checkbox:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Label styling */
+.do-not-translate-label {
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    margin: 0;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.do-not-translate-checkbox:disabled + .do-not-translate-label {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Segment marked as do not translate */
+.do-not-translate {
+    background-color: #e8f5e9;
+    border-left: 4px solid #4caf50;
+    padding-left: 12px;
+    position: relative;
+    transition: background-color 0.3s ease, border-left 0.3s ease;
+}
+
+/* Badge that appears after field name */
+.do-not-translate-badge {
+    display: inline-block;
+    background: #4caf50;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-left: 8px;
+    text-transform: uppercase;
+    animation: fadeIn 0.3s ease-in;
+    vertical-align: middle;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Input field when marked as do not translate */
+.do-not-translate input[readonly],
+.do-not-translate textarea[readonly] {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Smooth transitions for input fields */
+input[type="text"],
+textarea {
+    transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .do-not-translate-checkbox-container {
+        padding: 2px 4px;
+        gap: 6px;
+    }
+
+    .do-not-translate-label {
+        font-size: 12px;
+    }
+
+    .do-not-translate::before {
+        position: static;
+        display: block;
+        margin-bottom: 8px;
+    }
+}

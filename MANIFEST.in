@@ -1,0 +1,7 @@
+include LICENSE
+include README.md
+include CONTRIBUTING.md
+recursive-include wagtail_localize_intentional_blanks/static *
+recursive-include wagtail_localize_intentional_blanks/templates *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
