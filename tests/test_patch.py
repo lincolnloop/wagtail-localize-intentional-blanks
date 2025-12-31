@@ -414,3 +414,205 @@ class TestPatchFunctionality(TestCase):
                 assert string_segment.order == 1
             elif string_segment.string.data == "third":
                 assert string_segment.order == 2
+
+    def test_patch_raises_missing_translation_error_without_fallback(self):
+        """Test that MissingTranslationError is raised when translation is missing and fallback=False."""
+        from wagtail_localize.models import MissingTranslationError
+
+        # Create a string segment without translation
+        source_value = "Untranslated Text"
+        string = String.objects.create(
+            data=source_value,
+            locale=self.source_locale,
+        )
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.missing_field", defaults={"object": self.source.object}
+        )
+        StringSegment.objects.create(
+            source=self.source,
+            string=string,
+            context=context_obj,
+            order=0,
+            attrs="{}",
+        )
+
+        # Do NOT create a StringTranslation for this segment
+
+        # Should raise MissingTranslationError when fallback=False
+        with pytest.raises(MissingTranslationError):
+            self.source._get_segments_for_translation(
+                self.target_locale, fallback=False
+            )
+
+    def test_patch_handles_template_segments(self):
+        """Test that patch correctly processes template segments."""
+        from wagtail_localize.models import Template, TemplateSegment
+        import uuid
+
+        # Create a template
+        template = Template.objects.create(
+            uuid=uuid.uuid4(),
+            template_format="html",
+            template="<div>{{ variable }}</div>",
+            string_count=0,
+        )
+
+        # Create a template segment
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.template_field", defaults={"object": self.source.object}
+        )
+        TemplateSegment.objects.create(
+            source=self.source,
+            template=template,
+            context=context_obj,
+            order=100,
+        )
+
+        # Get segments for translation
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Find the template segment
+        template_segments = [
+            s for s in segments if s.__class__.__name__ == "TemplateSegmentValue"
+        ]
+        assert len(template_segments) > 0, "Should have at least one template segment"
+
+        # Verify template content
+        template_seg = template_segments[0]
+        assert template_seg.format == "html"
+        assert template_seg.template == "<div>{{ variable }}</div>"
+        assert template_seg.order == 100
+
+    def test_patch_handles_related_object_segments(self):
+        """Test that patch correctly processes related object segments."""
+        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
+        from django.contrib.contenttypes.models import ContentType
+
+        # Create a translatable target page
+        target_page = Page(
+            title="Related Page EN", slug="related-en", locale=self.source_locale
+        )
+        self.root_page.add_child(instance=target_page)
+
+        # Create translated version
+        translated_page = target_page.copy_for_translation(self.target_locale)
+
+        # Create a translatable object
+        page_ct = ContentType.objects.get_for_model(Page)
+        translatable_obj = TranslatableObject.objects.get_or_create(
+            content_type=page_ct, translation_key=target_page.translation_key
+        )[0]
+
+        # Create a related object segment
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.related_field", defaults={"object": self.source.object}
+        )
+        RelatedObjectSegment.objects.create(
+            source=self.source,
+            object=translatable_obj,
+            context=context_obj,
+            order=200,
+        )
+
+        # Get segments for translation
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Find the related object segment
+        related_segments = [
+            s for s in segments if s.__class__.__name__ == "RelatedObjectSegmentValue"
+        ]
+        assert len(related_segments) > 0, (
+            "Should have at least one related object segment"
+        )
+
+        # Verify related object (note: patch.py stores instance.pk in translation_key attribute)
+        related_seg = related_segments[0]
+        assert related_seg.content_type == page_ct
+        assert related_seg.translation_key == translated_page.pk
+        assert related_seg.order == 200
+
+    def test_patch_handles_related_object_segments_with_fallback(self):
+        """Test that patch uses fallback for related objects when translation doesn't exist."""
+        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
+        from django.contrib.contenttypes.models import ContentType
+
+        # Create a target page WITHOUT translation
+        target_page = Page(
+            title="Untranslated Related",
+            slug="untranslated-en",
+            locale=self.source_locale,
+        )
+        self.root_page.add_child(instance=target_page)
+
+        # Do NOT create translated version
+
+        # Create a translatable object
+        page_ct = ContentType.objects.get_for_model(Page)
+        translatable_obj = TranslatableObject.objects.get_or_create(
+            content_type=page_ct, translation_key=target_page.translation_key
+        )[0]
+
+        # Create a related object segment
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.related_fallback_field", defaults={"object": self.source.object}
+        )
+        RelatedObjectSegment.objects.create(
+            source=self.source,
+            object=translatable_obj,
+            context=context_obj,
+            order=300,
+        )
+
+        # Get segments with fallback=True
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Should use source locale instance as fallback
+        related_segments = [
+            s for s in segments if s.__class__.__name__ == "RelatedObjectSegmentValue"
+        ]
+        assert len(related_segments) > 0, (
+            "Should have at least one related object segment"
+        )
+
+        # Verify it used the source page as fallback (note: patch.py stores instance.pk in translation_key attribute)
+        related_seg = related_segments[0]
+        assert related_seg.translation_key == target_page.pk
+
+    def test_patch_handles_overridable_segments(self):
+        """Test that patch correctly processes overridable segments."""
+        from wagtail_localize.models import OverridableSegment
+
+        # Create an overridable segment
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.overridable_field", defaults={"object": self.source.object}
+        )
+        OverridableSegment.objects.create(
+            source=self.source,
+            context=context_obj,
+            data_json='{"value": "test data"}',
+            order=400,
+        )
+
+        # Get segments for translation
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Find the overridable segment
+        overridable_segments = [
+            s for s in segments if s.__class__.__name__ == "OverridableSegmentValue"
+        ]
+        assert len(overridable_segments) > 0, (
+            "Should have at least one overridable segment"
+        )
+
+        # Verify overridable content
+        overridable_seg = overridable_segments[0]
+        assert overridable_seg.data == '{"value": "test data"}'
+        assert overridable_seg.order == 400
