@@ -18,7 +18,10 @@ from wagtail_localize.models import (
     TranslationContext,
     TranslationSource,
 )
-from wagtail_localize_intentional_blanks.constants import BACKUP_SEPARATOR, DO_NOT_TRANSLATE_MARKER
+from wagtail_localize_intentional_blanks.constants import (
+    BACKUP_SEPARATOR,
+    DO_NOT_TRANSLATE_MARKER,
+)
 
 User = get_user_model()
 
@@ -35,8 +38,12 @@ class TestMarkSegmentView(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass")
 
         # Create locales
-        self.source_locale = Locale.objects.get_or_create(language_code="en", defaults={"language_code": "en"})[0]
-        self.target_locale = Locale.objects.get_or_create(language_code="fr", defaults={"language_code": "fr"})[0]
+        self.source_locale = Locale.objects.get_or_create(
+            language_code="en", defaults={"language_code": "en"}
+        )[0]
+        self.target_locale = Locale.objects.get_or_create(
+            language_code="fr", defaults={"language_code": "fr"}
+        )[0]
 
         # Create a root page
         self.root_page = Page.objects.filter(depth=1).first()
@@ -54,7 +61,9 @@ class TestMarkSegmentView(TestCase):
         self.segment = StringSegment.objects.filter(source=self.source).first()
         if not self.segment:
             # If no segments exist, create a minimal one with proper context
-            context_obj, _ = TranslationContext.objects.get_or_create(path="test.field", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path="test.field", defaults={"object": self.source.object}
+            )
             self.string = String.objects.create(
                 data="Test string",
                 locale=self.source_locale,
@@ -76,7 +85,10 @@ class TestMarkSegmentView(TestCase):
 
     def test_mark_segment_requires_login(self):
         """Test that marking requires authentication."""
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.post(url)
 
@@ -87,7 +99,10 @@ class TestMarkSegmentView(TestCase):
         """Test that marking requires POST method."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.get(url)
 
@@ -98,7 +113,10 @@ class TestMarkSegmentView(TestCase):
         """Test successfully marking a segment."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.post(url, {"do_not_translate": "true"})
 
@@ -111,7 +129,9 @@ class TestMarkSegmentView(TestCase):
         assert "message" in data
 
         # Verify StringTranslation was created
-        st = StringTranslation.objects.get(translation_of=self.string, locale=self.target_locale)
+        st = StringTranslation.objects.get(
+            translation_of=self.string, locale=self.target_locale
+        )
         assert st.data == DO_NOT_TRANSLATE_MARKER
 
     def test_unmark_segment_success(self):
@@ -119,7 +139,10 @@ class TestMarkSegmentView(TestCase):
         self.client.login(username="testuser", password="testpass")
 
         # First mark it
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
         self.client.post(url, {"do_not_translate": "true"})
 
         # Then unmark it
@@ -132,13 +155,18 @@ class TestMarkSegmentView(TestCase):
         assert data["do_not_translate"] is False
 
         # Verify StringTranslation was removed (no marker or encoded marker)
-        assert not StringTranslation.objects.filter(translation_of=self.string, locale=self.target_locale).exists()
+        assert not StringTranslation.objects.filter(
+            translation_of=self.string, locale=self.target_locale
+        ).exists()
 
     def test_mark_segment_invalid_translation_id(self):
         """Test with invalid translation ID."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[99999, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[99999, self.segment.id],
+        )
 
         response = self.client.post(url, {"do_not_translate": "true"})
 
@@ -151,7 +179,10 @@ class TestMarkSegmentView(TestCase):
         """Test with invalid segment ID."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, 99999])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, 99999],
+        )
 
         response = self.client.post(url, {"do_not_translate": "true"})
 
@@ -172,19 +203,29 @@ class TestMarkSegmentView(TestCase):
             data="Existing translation",
         )
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.string.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.string.id],
+        )
 
         response = self.client.post(url, {"do_not_translate": "true"})
 
         assert response.status_code == 200
 
         # Should have updated, not created new
-        count = StringTranslation.objects.filter(translation_of=self.string, locale=self.target_locale).count()
+        count = StringTranslation.objects.filter(
+            translation_of=self.string, locale=self.target_locale
+        ).count()
         assert count == 1
 
         # Should have encoded the backup
-        st = StringTranslation.objects.get(translation_of=self.string, locale=self.target_locale)
-        assert st.data == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}Existing translation"
+        st = StringTranslation.objects.get(
+            translation_of=self.string, locale=self.target_locale
+        )
+        assert (
+            st.data
+            == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}Existing translation"
+        )
 
     def test_unmark_segment_restores_backup(self):
         """Test unmarking restores the backed up translation."""
@@ -198,7 +239,10 @@ class TestMarkSegmentView(TestCase):
             data="Original translation",
         )
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.string.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.string.id],
+        )
 
         # Mark it
         self.client.post(url, {"do_not_translate": "true"})
@@ -214,15 +258,22 @@ class TestMarkSegmentView(TestCase):
         assert data["translated_value"] == "Original translation"
 
         # Verify backup was restored
-        st = StringTranslation.objects.get(translation_of=self.string, locale=self.target_locale)
+        st = StringTranslation.objects.get(
+            translation_of=self.string, locale=self.target_locale
+        )
         assert st.data == "Original translation"
 
-    @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_REQUIRED_PERMISSION="cms.can_translate")
+    @override_settings(
+        WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_REQUIRED_PERMISSION="cms.can_translate"
+    )
     def test_mark_segment_permission_denied(self):
         """Test marking fails without required permission."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.post(url, {"do_not_translate": "true"})
 
@@ -234,7 +285,10 @@ class TestMarkSegmentView(TestCase):
         """Test marking with invalid do_not_translate parameter."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.post(url, {"do_not_translate": "invalid_value"})
 
@@ -244,13 +298,18 @@ class TestMarkSegmentView(TestCase):
         assert "Invalid do_not_translate parameter" in data["error"]
 
         # Verify no StringTranslation was created
-        assert not StringTranslation.objects.filter(translation_of=self.string, locale=self.target_locale).exists()
+        assert not StringTranslation.objects.filter(
+            translation_of=self.string, locale=self.target_locale
+        ).exists()
 
     def test_mark_segment_missing_parameter(self):
         """Test marking with missing do_not_translate parameter."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:mark_segment_do_not_translate", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.post(url)
 
@@ -271,8 +330,12 @@ class TestGetSegmentStatusView(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass")
 
         # Create locales
-        self.source_locale = Locale.objects.get_or_create(language_code="en", defaults={"language_code": "en"})[0]
-        self.target_locale = Locale.objects.get_or_create(language_code="fr", defaults={"language_code": "fr"})[0]
+        self.source_locale = Locale.objects.get_or_create(
+            language_code="en", defaults={"language_code": "en"}
+        )[0]
+        self.target_locale = Locale.objects.get_or_create(
+            language_code="fr", defaults={"language_code": "fr"}
+        )[0]
 
         # Create a root page
         self.root_page = Page.objects.filter(depth=1).first()
@@ -290,7 +353,9 @@ class TestGetSegmentStatusView(TestCase):
         self.segment = StringSegment.objects.filter(source=self.source).first()
         if not self.segment:
             # If no segments exist, create a minimal one with proper context
-            context_obj, _ = TranslationContext.objects.get_or_create(path="test.field", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path="test.field", defaults={"object": self.source.object}
+            )
             self.string = String.objects.create(
                 data="Test string",
                 locale=self.source_locale,
@@ -312,7 +377,10 @@ class TestGetSegmentStatusView(TestCase):
 
     def test_get_status_requires_login(self):
         """Test that getting status requires authentication."""
-        url = reverse("wagtail_localize_intentional_blanks:get_segment_status", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_segment_status",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.get(url)
 
@@ -323,7 +391,10 @@ class TestGetSegmentStatusView(TestCase):
         """Test getting status for unmarked segment."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:get_segment_status", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_segment_status",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.get(url)
 
@@ -347,7 +418,10 @@ class TestGetSegmentStatusView(TestCase):
             data=DO_NOT_TRANSLATE_MARKER,
         )
 
-        url = reverse("wagtail_localize_intentional_blanks:get_segment_status", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_segment_status",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.get(url)
 
@@ -371,7 +445,10 @@ class TestGetSegmentStatusView(TestCase):
             data="French translation",
         )
 
-        url = reverse("wagtail_localize_intentional_blanks:get_segment_status", args=[self.translation.id, self.segment.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_segment_status",
+            args=[self.translation.id, self.segment.id],
+        )
 
         response = self.client.get(url)
 
@@ -386,7 +463,10 @@ class TestGetSegmentStatusView(TestCase):
         """Test getting status with invalid IDs."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:get_segment_status", args=[99999, 99999])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_segment_status",
+            args=[99999, 99999],
+        )
 
         response = self.client.get(url)
 
@@ -407,8 +487,12 @@ class TestGetTranslationStatusView(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass")
 
         # Create locales
-        self.source_locale = Locale.objects.get_or_create(language_code="en", defaults={"language_code": "en"})[0]
-        self.target_locale = Locale.objects.get_or_create(language_code="fr", defaults={"language_code": "fr"})[0]
+        self.source_locale = Locale.objects.get_or_create(
+            language_code="en", defaults={"language_code": "en"}
+        )[0]
+        self.target_locale = Locale.objects.get_or_create(
+            language_code="fr", defaults={"language_code": "fr"}
+        )[0]
 
         # Create a root page
         self.root_page = Page.objects.filter(depth=1).first()
@@ -416,7 +500,9 @@ class TestGetTranslationStatusView(TestCase):
             self.root_page = Page.add_root(title="Root", slug="root")
 
         # Create test page
-        self.page = Page(title="Test Page", slug="test-page-bulk", locale=self.source_locale)
+        self.page = Page(
+            title="Test Page", slug="test-page-bulk", locale=self.source_locale
+        )
         self.root_page.add_child(instance=self.page)
 
         # Create translation source using the proper wagtail-localize API
@@ -430,7 +516,9 @@ class TestGetTranslationStatusView(TestCase):
                 data=f"Test string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.field_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -448,7 +536,10 @@ class TestGetTranslationStatusView(TestCase):
 
     def test_get_translation_status_requires_login(self):
         """Test that getting translation status requires authentication."""
-        url = reverse("wagtail_localize_intentional_blanks:get_translation_status", args=[self.translation.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_translation_status",
+            args=[self.translation.id],
+        )
 
         response = self.client.get(url)
 
@@ -459,7 +550,10 @@ class TestGetTranslationStatusView(TestCase):
         """Test getting status when no segments are marked."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:get_translation_status", args=[self.translation.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_translation_status",
+            args=[self.translation.id],
+        )
 
         response = self.client.get(url)
 
@@ -482,7 +576,10 @@ class TestGetTranslationStatusView(TestCase):
                 data=DO_NOT_TRANSLATE_MARKER,
             )
 
-        url = reverse("wagtail_localize_intentional_blanks:get_translation_status", args=[self.translation.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_translation_status",
+            args=[self.translation.id],
+        )
 
         response = self.client.get(url)
 
@@ -517,7 +614,10 @@ class TestGetTranslationStatusView(TestCase):
                 data=DO_NOT_TRANSLATE_MARKER,
             )
 
-        url = reverse("wagtail_localize_intentional_blanks:get_translation_status", args=[self.translation.id])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_translation_status",
+            args=[self.translation.id],
+        )
 
         response = self.client.get(url)
 
@@ -536,7 +636,9 @@ class TestGetTranslationStatusView(TestCase):
         """Test getting status with invalid translation ID."""
         self.client.login(username="testuser", password="testpass")
 
-        url = reverse("wagtail_localize_intentional_blanks:get_translation_status", args=[99999])
+        url = reverse(
+            "wagtail_localize_intentional_blanks:get_translation_status", args=[99999]
+        )
 
         response = self.client.get(url)
 

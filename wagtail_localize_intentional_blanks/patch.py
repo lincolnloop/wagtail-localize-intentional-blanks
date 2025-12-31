@@ -46,7 +46,11 @@ def _get_segments_for_translation_with_intentional_blanks(self, locale, fallback
     # Import here to avoid circular imports
     from wagtail_localize.models import MissingTranslationError, StringSegment
 
-    string_segments = StringSegment.objects.filter(source=self).annotate_translation(locale).select_related("context", "string")
+    string_segments = (
+        StringSegment.objects.filter(source=self)
+        .annotate_translation(locale)
+        .select_related("context", "string")
+    )
 
     segments = []
 
@@ -56,9 +60,13 @@ def _get_segments_for_translation_with_intentional_blanks(self, locale, fallback
             translation_data = string_segment.translation
 
             # Check for marker (exact match or with encoded backup)
-            if translation_data == marker or translation_data.startswith(marker + backup_separator):
+            if translation_data == marker or translation_data.startswith(
+                marker + backup_separator
+            ):
                 # Use source value instead of translation
-                logger.debug(f"Intentional blank detected for segment {string_segment.string_id} in locale {locale}, using source value")
+                logger.debug(
+                    f"Intentional blank detected for segment {string_segment.string_id} in locale {locale}, using source value"
+                )
                 string = StringValue(string_segment.string.data)
             else:
                 # Use the translated value
@@ -89,7 +97,9 @@ def _get_segments_for_translation_with_intentional_blanks(self, locale, fallback
         segments.append(segment_value)
 
     # Handle related object segments
-    related_object_segments = self.relatedobjectsegment_set.all().select_related("object")
+    related_object_segments = self.relatedobjectsegment_set.all().select_related(
+        "object"
+    )
     for related_object_segment in related_object_segments:
         try:
             instance = related_object_segment.object.get_instance(locale)
@@ -127,5 +137,7 @@ def apply_patch():
     This should be called from the app's ready() method.
     """
     logger.info("Applying intentional blanks patch to wagtail-localize")
-    TranslationSource._get_segments_for_translation = _get_segments_for_translation_with_intentional_blanks
+    TranslationSource._get_segments_for_translation = (
+        _get_segments_for_translation_with_intentional_blanks
+    )
     logger.info("Patch applied successfully")

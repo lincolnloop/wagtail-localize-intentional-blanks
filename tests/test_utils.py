@@ -15,7 +15,10 @@ from wagtail_localize.models import (
     TranslationContext,
     TranslationSource,
 )
-from wagtail_localize_intentional_blanks.constants import BACKUP_SEPARATOR, DO_NOT_TRANSLATE_MARKER
+from wagtail_localize_intentional_blanks.constants import (
+    BACKUP_SEPARATOR,
+    DO_NOT_TRANSLATE_MARKER,
+)
 from wagtail_localize_intentional_blanks.utils import (
     bulk_mark_segments,
     get_marker,
@@ -37,8 +40,12 @@ class TestUtilsFunctions(TestCase):
     def setUp(self):
         """Set up test data."""
         # Create locales
-        self.source_locale = Locale.objects.get_or_create(language_code="en", defaults={"language_code": "en"})[0]
-        self.target_locale = Locale.objects.get_or_create(language_code="fr", defaults={"language_code": "fr"})[0]
+        self.source_locale = Locale.objects.get_or_create(
+            language_code="en", defaults={"language_code": "en"}
+        )[0]
+        self.target_locale = Locale.objects.get_or_create(
+            language_code="fr", defaults={"language_code": "fr"}
+        )[0]
 
         # Create a test user
         self.user = User.objects.create_user(username="testuser", password="testpass")
@@ -59,7 +66,9 @@ class TestUtilsFunctions(TestCase):
         self.segment = StringSegment.objects.filter(source=self.source).first()
         if not self.segment:
             # If no segments exist, create a minimal one with proper context
-            context_obj, _ = TranslationContext.objects.get_or_create(path="test.field", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path="test.field", defaults={"object": self.source.object}
+            )
             self.string = String.objects.create(
                 data="Test string",
                 locale=self.source_locale,
@@ -86,7 +95,9 @@ class TestUtilsFunctions(TestCase):
 
     def test_mark_segment_do_not_translate_creates_translation(self):
         """Test marking a segment creates a StringTranslation."""
-        result = mark_segment_do_not_translate(self.translation, self.segment, user=self.user)
+        result = mark_segment_do_not_translate(
+            self.translation, self.segment, user=self.user
+        )
 
         assert result is not None
         assert isinstance(result, StringTranslation)
@@ -113,10 +124,15 @@ class TestUtilsFunctions(TestCase):
             data="Original translation",
         )
 
-        result = mark_segment_do_not_translate(self.translation, self.segment, user=self.user)
+        result = mark_segment_do_not_translate(
+            self.translation, self.segment, user=self.user
+        )
 
         # Should encode the backup in the data field
-        assert result.data == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}Original translation"
+        assert (
+            result.data
+            == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}Original translation"
+        )
         # Should only have one translation
         count = StringTranslation.objects.filter(
             translation_of=self.string,
@@ -130,7 +146,11 @@ class TestUtilsFunctions(TestCase):
         mark_segment_do_not_translate(self.translation, self.segment)
 
         # Verify it exists
-        assert StringTranslation.objects.filter(translation_of=self.string, locale=self.target_locale, data=DO_NOT_TRANSLATE_MARKER).exists()
+        assert StringTranslation.objects.filter(
+            translation_of=self.string,
+            locale=self.target_locale,
+            data=DO_NOT_TRANSLATE_MARKER,
+        ).exists()
 
         # Unmark it
         result = unmark_segment_do_not_translate(self.translation, self.segment)
@@ -138,7 +158,9 @@ class TestUtilsFunctions(TestCase):
         # Should return 1 (deleted)
         assert result == 1
         # Verify it's removed
-        assert not StringTranslation.objects.filter(translation_of=self.string, locale=self.target_locale).exists()
+        assert not StringTranslation.objects.filter(
+            translation_of=self.string, locale=self.target_locale
+        ).exists()
 
     def test_unmark_segment_do_not_translate_with_backup(self):
         """Test unmarking a segment with backup restores the original."""
@@ -154,8 +176,13 @@ class TestUtilsFunctions(TestCase):
         mark_segment_do_not_translate(self.translation, self.segment)
 
         # Verify it has encoded backup
-        st = StringTranslation.objects.get(translation_of=self.string, locale=self.target_locale)
-        assert st.data == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}Original translation"
+        st = StringTranslation.objects.get(
+            translation_of=self.string, locale=self.target_locale
+        )
+        assert (
+            st.data
+            == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}Original translation"
+        )
 
         # Unmark it
         result = unmark_segment_do_not_translate(self.translation, self.segment)
@@ -163,7 +190,9 @@ class TestUtilsFunctions(TestCase):
         # Should return 1 (updated)
         assert result == 1
         # Verify it restored the backup
-        st = StringTranslation.objects.get(translation_of=self.string, locale=self.target_locale)
+        st = StringTranslation.objects.get(
+            translation_of=self.string, locale=self.target_locale
+        )
         assert st.data == "Original translation"
 
     def test_unmark_segment_does_nothing_if_not_marked(self):
@@ -173,7 +202,9 @@ class TestUtilsFunctions(TestCase):
 
     def test_is_do_not_translate_returns_true(self):
         """Test is_do_not_translate returns True for marked segments."""
-        string_translation = mark_segment_do_not_translate(self.translation, self.segment)
+        string_translation = mark_segment_do_not_translate(
+            self.translation, self.segment
+        )
 
         assert is_do_not_translate(string_translation) is True
 
@@ -187,7 +218,9 @@ class TestUtilsFunctions(TestCase):
             data="Original translation",
         )
 
-        string_translation = mark_segment_do_not_translate(self.translation, self.segment)
+        string_translation = mark_segment_do_not_translate(
+            self.translation, self.segment
+        )
 
         # Should still be recognized as do not translate even with encoded backup
         assert is_do_not_translate(string_translation) is True
@@ -212,7 +245,9 @@ class TestUtilsFunctions(TestCase):
                 data=f"Test string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.field_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -236,7 +271,9 @@ class TestUtilsFunctions(TestCase):
                 data=f"Test string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.mixed_field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.mixed_field_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -281,7 +318,9 @@ class TestUtilsFunctions(TestCase):
                 data=f"Test string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.bulk_field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_field_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -297,7 +336,9 @@ class TestUtilsFunctions(TestCase):
 
         # Verify all are marked
         for segment in segments:
-            st = StringTranslation.objects.get(translation_of=segment.string, locale=self.target_locale)
+            st = StringTranslation.objects.get(
+                translation_of=segment.string, locale=self.target_locale
+            )
             assert st.data == DO_NOT_TRANSLATE_MARKER
             assert st.last_translated_by == self.user
 
@@ -317,7 +358,9 @@ class TestUtilsFunctions(TestCase):
                 data=f"Marked string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.marked_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.marked_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -332,7 +375,9 @@ class TestUtilsFunctions(TestCase):
                 data=f"Unmarked string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.unmarked_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.unmarked_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -377,7 +422,10 @@ class TestValidateConfiguration(TestCase):
         with pytest.raises(ValueError) as exc_info:
             validate_configuration()
 
-        assert "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER must be set to a non-empty string" in str(exc_info.value)
+        assert (
+            "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER must be set to a non-empty string"
+            in str(exc_info.value)
+        )
 
     @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER="")
     def test_validate_configuration_raises_when_marker_is_empty(self):
@@ -385,7 +433,10 @@ class TestValidateConfiguration(TestCase):
         with pytest.raises(ValueError) as exc_info:
             validate_configuration()
 
-        assert "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER must be set to a non-empty string" in str(exc_info.value)
+        assert (
+            "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER must be set to a non-empty string"
+            in str(exc_info.value)
+        )
 
     @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR=None)
     def test_validate_configuration_raises_when_backup_separator_is_none(self):
@@ -393,7 +444,10 @@ class TestValidateConfiguration(TestCase):
         with pytest.raises(ValueError) as exc_info:
             validate_configuration()
 
-        assert "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR must be set to a non-empty string" in str(exc_info.value)
+        assert (
+            "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR must be set to a non-empty string"
+            in str(exc_info.value)
+        )
 
     @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR="")
     def test_validate_configuration_raises_when_backup_separator_is_empty(self):
@@ -401,4 +455,7 @@ class TestValidateConfiguration(TestCase):
         with pytest.raises(ValueError) as exc_info:
             validate_configuration()
 
-        assert "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR must be set to a non-empty string" in str(exc_info.value)
+        assert (
+            "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR must be set to a non-empty string"
+            in str(exc_info.value)
+        )

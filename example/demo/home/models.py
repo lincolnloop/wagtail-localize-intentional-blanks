@@ -15,7 +15,9 @@ class HomePage(Page):
     certain segments as "do not translate" to use the source language value.
     """
 
-    tagline = models.CharField(max_length=255, blank=True, help_text="A short tagline for the homepage")
+    tagline = models.CharField(
+        max_length=255, blank=True, help_text="A short tagline for the homepage"
+    )
 
     body = RichTextField(blank=True, help_text="Main content area with rich text")
 

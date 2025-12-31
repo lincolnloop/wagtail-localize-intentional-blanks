@@ -52,7 +52,9 @@ class TestConstants(TestCase):
         value = get_setting("MARKER")
         assert value == "__CUSTOM_MARKER__"
 
-    @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_REQUIRED_PERMISSION="cms.can_translate")
+    @override_settings(
+        WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_REQUIRED_PERMISSION="cms.can_translate"
+    )
     def test_get_setting_custom_permission(self):
         """Test get_setting with custom permission."""
         value = get_setting("REQUIRED_PERMISSION")

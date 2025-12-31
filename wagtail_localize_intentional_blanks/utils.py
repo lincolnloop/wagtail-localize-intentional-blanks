@@ -40,10 +40,14 @@ def validate_configuration():
     backup_separator = get_backup_separator()
 
     if marker is None or marker == "":
-        raise ValueError("WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER must be set to a non-empty string. Check your Django settings.")
+        raise ValueError(
+            "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_MARKER must be set to a non-empty string. Check your Django settings."
+        )
 
     if backup_separator is None or backup_separator == "":
-        raise ValueError("WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR must be set to a non-empty string. Check your Django settings.")
+        raise ValueError(
+            "WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_BACKUP_SEPARATOR must be set to a non-empty string. Check your Django settings."
+        )
 
 
 def mark_segment_do_not_translate(translation, segment, user=None):
@@ -67,14 +71,22 @@ def mark_segment_do_not_translate(translation, segment, user=None):
     validate_configuration()
     marker = get_marker()
 
-    logger.info(f"Marking segment: string_id={segment.string.id}, locale={translation.target_locale}, context='{segment.context}', marker='{marker}'")
+    logger.info(
+        f"Marking segment: string_id={segment.string.id}, locale={translation.target_locale}, context='{segment.context}', marker='{marker}'"
+    )
 
     # Check if there's an existing translation with real data (not the marker)
     backup_separator = get_backup_separator()
     try:
-        existing = StringTranslation.objects.get(translation_of=segment.string, locale=translation.target_locale, context=segment.context)
+        existing = StringTranslation.objects.get(
+            translation_of=segment.string,
+            locale=translation.target_locale,
+            context=segment.context,
+        )
         # Encode backup in the marker itself
-        if existing.data != marker and not existing.data.startswith(marker + backup_separator):
+        if existing.data != marker and not existing.data.startswith(
+            marker + backup_separator
+        ):
             backup_data = existing.data
             logger.info(f"Backing up existing translation: '{backup_data}'")
             # Encode backup in the data field: __DO_NOT_TRANSLATE__|backup|original_value
@@ -95,7 +107,9 @@ def mark_segment_do_not_translate(translation, segment, user=None):
         },
     )
 
-    logger.info(f"StringTranslation {'created' if created else 'updated'}: id={string_translation.id}")
+    logger.info(
+        f"StringTranslation {'created' if created else 'updated'}: id={string_translation.id}"
+    )
 
     return string_translation
 
@@ -125,8 +139,12 @@ def unmark_segment_do_not_translate(translation, segment):
     )
 
     # First, let's see ALL StringTranslation records for this string in this locale
-    all_for_string = StringTranslation.objects.filter(translation_of=segment.string, locale=translation.target_locale)
-    logger.info(f"Total StringTranslation records for this string in locale: {all_for_string.count()}")
+    all_for_string = StringTranslation.objects.filter(
+        translation_of=segment.string, locale=translation.target_locale
+    )
+    logger.info(
+        f"Total StringTranslation records for this string in locale: {all_for_string.count()}"
+    )
     for st in all_for_string:
         logger.info(f"  - id={st.id}, context='{st.context}', data='{st.data}'")
 
@@ -135,7 +153,10 @@ def unmark_segment_do_not_translate(translation, segment):
         # Try to find with exact marker first
         try:
             marked_translation = StringTranslation.objects.get(
-                translation_of=segment.string, locale=translation.target_locale, context=segment.context, data=marker
+                translation_of=segment.string,
+                locale=translation.target_locale,
+                context=segment.context,
+                data=marker,
             )
             backup_data = None
         except StringTranslation.DoesNotExist:
@@ -147,7 +168,11 @@ def unmark_segment_do_not_translate(translation, segment):
                 data__startswith=marker + backup_separator,
             )
             # Extract backup from encoded data: __DO_NOT_TRANSLATE__|backup|original_value
-            backup_data = marked_translation.data.split(backup_separator, 1)[1] if backup_separator in marked_translation.data else None
+            backup_data = (
+                marked_translation.data.split(backup_separator, 1)[1]
+                if backup_separator in marked_translation.data
+                else None
+            )
             logger.info(f"Found backup in data field: '{backup_data}'")
 
         if backup_data:
@@ -186,7 +211,9 @@ def is_do_not_translate(string_translation):
     validate_configuration()
     marker = get_marker()
     backup_separator = get_backup_separator()
-    return string_translation.data == marker or string_translation.data.startswith(marker + backup_separator)
+    return string_translation.data == marker or string_translation.data.startswith(
+        marker + backup_separator
+    )
 
 
 def get_source_fallback_stats(translation):
@@ -211,14 +238,22 @@ def get_source_fallback_stats(translation):
     backup_separator = get_backup_separator()
 
     # Get all string IDs from segments belonging to this translation source
-    string_ids = StringSegment.objects.filter(source=translation.source).values_list("string_id", flat=True)
+    string_ids = StringSegment.objects.filter(source=translation.source).values_list(
+        "string_id", flat=True
+    )
 
     # Query translations for these strings in the target locale
-    all_translations = StringTranslation.objects.filter(locale=translation.target_locale, translation_of_id__in=string_ids)
+    all_translations = StringTranslation.objects.filter(
+        locale=translation.target_locale, translation_of_id__in=string_ids
+    )
 
     # Match both exact marker and encoded backup format
-    do_not_translate = all_translations.filter(Q(data=marker) | Q(data__startswith=marker + backup_separator))
-    manually_translated = all_translations.exclude(Q(data=marker) | Q(data__startswith=marker + backup_separator))
+    do_not_translate = all_translations.filter(
+        Q(data=marker) | Q(data__startswith=marker + backup_separator)
+    )
+    manually_translated = all_translations.exclude(
+        Q(data=marker) | Q(data__startswith=marker + backup_separator)
+    )
 
     return {
         "total": all_translations.count(),
@@ -273,15 +308,21 @@ def get_segments_do_not_translate(translation):
     backup_separator = get_backup_separator()
 
     # Get all string IDs from segments belonging to this translation source
-    string_ids = StringSegment.objects.filter(source=translation.source).values_list("string_id", flat=True)
-
-    # Find translations marked as "do not translate" (match both exact marker and encoded backup format)
-    marked_string_translations = StringTranslation.objects.filter(locale=translation.target_locale, translation_of_id__in=string_ids).filter(
-        Q(data=marker) | Q(data__startswith=marker + backup_separator)
+    string_ids = StringSegment.objects.filter(source=translation.source).values_list(
+        "string_id", flat=True
     )
 
+    # Find translations marked as "do not translate" (match both exact marker and encoded backup format)
+    marked_string_translations = StringTranslation.objects.filter(
+        locale=translation.target_locale, translation_of_id__in=string_ids
+    ).filter(Q(data=marker) | Q(data__startswith=marker + backup_separator))
+
     # Get the string IDs of marked translations
-    marked_string_ids = marked_string_translations.values_list("translation_of_id", flat=True)
+    marked_string_ids = marked_string_translations.values_list(
+        "translation_of_id", flat=True
+    )
 
     # Return the segments that have these marked strings
-    return StringSegment.objects.filter(source=translation.source, string_id__in=marked_string_ids)
+    return StringSegment.objects.filter(
+        source=translation.source, string_id__in=marked_string_ids
+    )

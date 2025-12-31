@@ -29,8 +29,12 @@ class TestTemplatetagsFilters(TestCase):
     def setUp(self):
         """Set up test data."""
         # Create locales
-        self.source_locale = Locale.objects.get_or_create(language_code="en", defaults={"language_code": "en"})[0]
-        self.target_locale = Locale.objects.get_or_create(language_code="fr", defaults={"language_code": "fr"})[0]
+        self.source_locale = Locale.objects.get_or_create(
+            language_code="en", defaults={"language_code": "en"}
+        )[0]
+        self.target_locale = Locale.objects.get_or_create(
+            language_code="fr", defaults={"language_code": "fr"}
+        )[0]
 
         # Create a root page
         self.root_page = Page.objects.filter(depth=1).first()
@@ -48,7 +52,9 @@ class TestTemplatetagsFilters(TestCase):
         self.segment = StringSegment.objects.filter(source=self.source).first()
         if not self.segment:
             # If no segments exist, create a minimal one with proper context
-            context_obj, _ = TranslationContext.objects.get_or_create(path="test.field", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path="test.field", defaults={"object": self.source.object}
+            )
             self.string = String.objects.create(
                 data="Test string",
                 locale=self.source_locale,
@@ -103,7 +109,9 @@ class TestTemplatetagsFilters(TestCase):
             data=DO_NOT_TRANSLATE_MARKER,
         )
 
-        template = Template("{% load intentional_blanks %}{% if translation|is_marked_do_not_translate %}marked{% else %}not marked{% endif %}")
+        template = Template(
+            "{% load intentional_blanks %}{% if translation|is_marked_do_not_translate %}marked{% else %}not marked{% endif %}"
+        )
         context = Context({"translation": string_translation})
         result = template.render(context)
 
@@ -118,7 +126,9 @@ class TestTemplatetagsFilters(TestCase):
                 data=f"Marked string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.marked_field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.marked_field_{i}", defaults={"object": self.source.object}
+            )
             StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -137,7 +147,10 @@ class TestTemplatetagsFilters(TestCase):
                 data=f"Translated string {i}",
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.translated_field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.translated_field_{i}",
+                defaults={"object": self.source.object},
+            )
             StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -168,7 +181,9 @@ class TestTemplatetagsFilters(TestCase):
     def test_template_tags_with_multiple_locales(self):
         """Test template tags work correctly with multiple target locales."""
         # Create another locale
-        de_locale = Locale.objects.get_or_create(language_code="de", defaults={"language_code": "de"})[0]
+        de_locale = Locale.objects.get_or_create(
+            language_code="de", defaults={"language_code": "de"}
+        )[0]
 
         # Create translation for German
         de_translation = Translation.objects.create(

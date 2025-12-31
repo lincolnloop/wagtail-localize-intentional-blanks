@@ -29,7 +29,9 @@ class Command(BaseCommand):
 
         # Check if HomePage already exists
         if HomePage.objects.exists():
-            self.stdout.write(self.style.WARNING("Home page already exists, using existing"))
+            self.stdout.write(
+                self.style.WARNING("Home page already exists, using existing")
+            )
             home = HomePage.objects.first()
         else:
             # Create HomePage
@@ -69,7 +71,9 @@ class Command(BaseCommand):
                 is_default_site=True,
                 site_name="Intentional Blanks Demo",
             )
-            self.stdout.write(self.style.SUCCESS("✓ Site created with home as root page"))
+            self.stdout.write(
+                self.style.SUCCESS("✓ Site created with home as root page")
+            )
 
         # Create an Article if it doesn't exist
         existing_article = ArticlePage.objects.filter(slug="firefox-specs").first()
@@ -91,7 +95,9 @@ class Command(BaseCommand):
             revision.publish()
             self.stdout.write(self.style.SUCCESS("✓ Article page created"))
         else:
-            self.stdout.write(self.style.WARNING("Article page already exists, skipping"))
+            self.stdout.write(
+                self.style.WARNING("Article page already exists, skipping")
+            )
 
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("=" * 60))

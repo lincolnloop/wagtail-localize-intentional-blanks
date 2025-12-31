@@ -19,7 +19,9 @@ class FeatureBlock(blocks.StructBlock):
 
     heading = blocks.CharBlock(max_length=100, help_text="Feature heading")
     paragraph = blocks.TextBlock(help_text="Feature description")
-    image_caption = blocks.CharBlock(max_length=200, required=False, help_text="Optional image caption")
+    image_caption = blocks.CharBlock(
+        max_length=200, required=False, help_text="Optional image caption"
+    )
 
     class Meta:
         icon = "doc-full"
@@ -34,8 +36,13 @@ class TechnicalSpecBlock(blocks.StructBlock):
     often don't need translation.
     """
 
-    spec_name = blocks.CharBlock(max_length=100, help_text="Specification name (e.g., 'CPU', 'RAM', 'Display')")
-    spec_value = blocks.CharBlock(max_length=200, help_text="Specification value (e.g., '8GB', '2.4GHz', '15.6 inches')")
+    spec_name = blocks.CharBlock(
+        max_length=100, help_text="Specification name (e.g., 'CPU', 'RAM', 'Display')"
+    )
+    spec_value = blocks.CharBlock(
+        max_length=200,
+        help_text="Specification value (e.g., '8GB', '2.4GHz', '15.6 inches')",
+    )
 
     class Meta:
         icon = "cog"

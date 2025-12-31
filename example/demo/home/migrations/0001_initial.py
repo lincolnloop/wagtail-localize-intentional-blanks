@@ -84,11 +84,17 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "tagline",
-                    models.CharField(blank=True, help_text="A short tagline for the homepage", max_length=255),
+                    models.CharField(
+                        blank=True,
+                        help_text="A short tagline for the homepage",
+                        max_length=255,
+                    ),
                 ),
                 (
                     "body",
-                    wagtail.fields.RichTextField(blank=True, help_text="Main content area with rich text"),
+                    wagtail.fields.RichTextField(
+                        blank=True, help_text="Main content area with rich text"
+                    ),
                 ),
                 (
                     "features",
@@ -117,7 +123,13 @@ class Migration(migrations.Migration):
                             ),
                             3: (
                                 "wagtail.blocks.StructBlock",
-                                [[("heading", 0), ("paragraph", 1), ("image_caption", 2)]],
+                                [
+                                    [
+                                        ("heading", 0),
+                                        ("paragraph", 1),
+                                        ("image_caption", 2),
+                                    ]
+                                ],
                                 {},
                             ),
                         },

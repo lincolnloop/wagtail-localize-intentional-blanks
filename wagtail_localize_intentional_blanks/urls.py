@@ -14,6 +14,14 @@ urlpatterns = [
         views.mark_segment_do_not_translate_view,
         name="mark_segment_do_not_translate",
     ),
-    path("translations/<int:translation_id>/segment/<int:segment_id>/status/", views.get_segment_status, name="get_segment_status"),
-    path("translations/<int:translation_id>/status/", views.get_translation_status, name="get_translation_status"),
+    path(
+        "translations/<int:translation_id>/segment/<int:segment_id>/status/",
+        views.get_segment_status,
+        name="get_segment_status",
+    ),
+    path(
+        "translations/<int:translation_id>/status/",
+        views.get_translation_status,
+        name="get_translation_status",
+    ),
 ]

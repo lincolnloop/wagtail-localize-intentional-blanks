@@ -34,8 +34,12 @@ class TestPatchFunctionality(TestCase):
     def setUp(self):
         """Set up test data."""
         # Create locales
-        self.source_locale = Locale.objects.get_or_create(language_code="en", defaults={"language_code": "en"})[0]
-        self.target_locale = Locale.objects.get_or_create(language_code="fr", defaults={"language_code": "fr"})[0]
+        self.source_locale = Locale.objects.get_or_create(
+            language_code="en", defaults={"language_code": "en"}
+        )[0]
+        self.target_locale = Locale.objects.get_or_create(
+            language_code="fr", defaults={"language_code": "fr"}
+        )[0]
 
         # Create a test user
         self.user = User.objects.create_user(username="testuser", password="testpass")
@@ -66,7 +70,9 @@ class TestPatchFunctionality(TestCase):
             data=source_value,
             locale=self.source_locale,
         )
-        context_obj, _ = TranslationContext.objects.get_or_create(path="test.field", defaults={"object": self.source.object})
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.field", defaults={"object": self.source.object}
+        )
         segment = StringSegment.objects.create(
             source=self.source,
             string=string,
@@ -79,12 +85,16 @@ class TestPatchFunctionality(TestCase):
         mark_segment_do_not_translate(self.translation, segment, user=self.user)
 
         # Verify the marker is stored in the database
-        st = StringTranslation.objects.get(translation_of=string, locale=self.target_locale)
+        st = StringTranslation.objects.get(
+            translation_of=string, locale=self.target_locale
+        )
         assert st.data == DO_NOT_TRANSLATE_MARKER
 
         # Get segments for translation using the patched method
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
-        segments = self.source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
 
         # Find our segment in the results
         string_segments = [s for s in segments if hasattr(s, "string")]
@@ -97,7 +107,9 @@ class TestPatchFunctionality(TestCase):
                 found = True
                 break
 
-        assert found, f"Expected to find source value '{source_value}' in segments, but it was not found"
+        assert found, (
+            f"Expected to find source value '{source_value}' in segments, but it was not found"
+        )
 
     def test_patch_replaces_marker_with_backup_using_source_value(self):
         """Test that marker with encoded backup is replaced with source value."""
@@ -107,7 +119,9 @@ class TestPatchFunctionality(TestCase):
             data=source_value,
             locale=self.source_locale,
         )
-        context_obj, _ = TranslationContext.objects.get_or_create(path="test.field2", defaults={"object": self.source.object})
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.field2", defaults={"object": self.source.object}
+        )
         segment = StringSegment.objects.create(
             source=self.source,
             string=string,
@@ -128,12 +142,18 @@ class TestPatchFunctionality(TestCase):
         mark_segment_do_not_translate(self.translation, segment, user=self.user)
 
         # Verify the marker with backup is stored
-        st = StringTranslation.objects.get(translation_of=string, locale=self.target_locale)
-        assert st.data == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}French Translation"
+        st = StringTranslation.objects.get(
+            translation_of=string, locale=self.target_locale
+        )
+        assert (
+            st.data == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}French Translation"
+        )
 
         # Get segments for translation using the patched method
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
-        segments = self.source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
 
         # The segment should have the source value, not the marker or backup
         string_segments = [s for s in segments if hasattr(s, "string")]
@@ -154,7 +174,9 @@ class TestPatchFunctionality(TestCase):
             data=source_value,
             locale=self.source_locale,
         )
-        context_obj, _ = TranslationContext.objects.get_or_create(path="test.normal_field", defaults={"object": self.source.object})
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.normal_field", defaults={"object": self.source.object}
+        )
         StringSegment.objects.create(
             source=self.source,
             string=string,
@@ -173,7 +195,9 @@ class TestPatchFunctionality(TestCase):
 
         # Get segments for translation
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
-        segments = self.source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
 
         # The segment should have the translated value
         string_segments = [s for s in segments if hasattr(s, "string")]
@@ -183,7 +207,9 @@ class TestPatchFunctionality(TestCase):
                 found = True
                 break
 
-        assert found, f"Expected to find translated value '{translated_value}' in segments"
+        assert found, (
+            f"Expected to find translated value '{translated_value}' in segments"
+        )
 
     def test_patch_handles_mixed_translations(self):
         """Test that patch handles mix of marked and normal translations."""
@@ -201,7 +227,9 @@ class TestPatchFunctionality(TestCase):
                 data=source_val,
                 locale=self.source_locale,
             )
-            context_obj, _ = TranslationContext.objects.get_or_create(path=f"test.mixed_field_{i}", defaults={"object": self.source.object})
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.mixed_field_{i}", defaults={"object": self.source.object}
+            )
             segment = StringSegment.objects.create(
                 source=self.source,
                 string=string,
@@ -235,7 +263,9 @@ class TestPatchFunctionality(TestCase):
 
         # Get segments for translation
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
-        segments = self.source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
         string_segments = [s for s in segments if hasattr(s, "string")]
 
         # Verify results
@@ -248,14 +278,22 @@ class TestPatchFunctionality(TestCase):
 
         # Check marked segments return source values
         assert "source2" in segment_values, "Marked segment should return source value"
-        assert "source4" in segment_values, "Marked segment with backup should return source value"
+        assert "source4" in segment_values, (
+            "Marked segment with backup should return source value"
+        )
 
         # Check normal translations are preserved
-        assert "translation1" in segment_values, "Normal translation should be preserved"
-        assert "translation3" in segment_values, "Normal translation should be preserved"
+        assert "translation1" in segment_values, (
+            "Normal translation should be preserved"
+        )
+        assert "translation3" in segment_values, (
+            "Normal translation should be preserved"
+        )
 
         # Check markers are NOT in the results
-        assert DO_NOT_TRANSLATE_MARKER not in segment_values, "Marker should not appear in segments"
+        assert DO_NOT_TRANSLATE_MARKER not in segment_values, (
+            "Marker should not appear in segments"
+        )
 
     @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_ENABLED=False)
     def test_patch_disabled_when_feature_disabled(self):
@@ -266,7 +304,9 @@ class TestPatchFunctionality(TestCase):
             data=source_value,
             locale=self.source_locale,
         )
-        context_obj, _ = TranslationContext.objects.get_or_create(path="test.disabled_field", defaults={"object": self.source.object})
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.disabled_field", defaults={"object": self.source.object}
+        )
         segment = StringSegment.objects.create(
             source=self.source,
             string=string,
@@ -279,13 +319,17 @@ class TestPatchFunctionality(TestCase):
         mark_segment_do_not_translate(self.translation, segment)
 
         # Verify the marker is stored
-        st = StringTranslation.objects.get(translation_of=string, locale=self.target_locale)
+        st = StringTranslation.objects.get(
+            translation_of=string, locale=self.target_locale
+        )
         assert st.data == DO_NOT_TRANSLATE_MARKER
 
         # With feature disabled, the patch is bypassed and markers are NOT replaced
         # Since a translation exists (the marker), wagtail-localize returns it as-is
         # Note: We use fallback=True to handle the page's auto-created segments
-        segments = self.source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
         string_segments = [s for s in segments if hasattr(s, "string")]
 
         # Verify that the marker is NOT replaced (feature is disabled)
@@ -313,7 +357,9 @@ class TestPatchFunctionality(TestCase):
         )
 
         # Should not raise any errors
-        segments = empty_source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = empty_source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
 
         # Should return empty or minimal segments
         assert isinstance(segments, list)
@@ -348,7 +394,9 @@ class TestPatchFunctionality(TestCase):
 
         # Get segments
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
-        segments = self.source._get_segments_for_translation(self.target_locale, fallback=True)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
         string_segments = [s for s in segments if hasattr(s, "string")]
 
         # Verify we got segments back
