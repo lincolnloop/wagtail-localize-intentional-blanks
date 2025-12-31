@@ -75,6 +75,10 @@
                         translation.data = sourceValue || '';
                     }
 
+                    // Clear translation metadata to prevent "Translated manually on..." text
+                    translation.last_translated_by = null;
+                    translation.comment = '';
+
                     cleanedCount++;
                 }
             });
@@ -137,11 +141,14 @@
 
             if (translation) {
                 if (doNotTranslate) {
-                    // Marking - use source value
+                    // Marking - use source value and clear metadata
                     translation.data = sourceValue;
+                    translation.last_translated_by = null;
+                    translation.comment = '';
                 } else {
                     // Unmarking - use translated value or empty
                     translation.data = translatedValue || '';
+                    // Metadata will be restored when user edits/saves the translation
                 }
 
                 editorContainer.dataset.props = JSON.stringify(props);
