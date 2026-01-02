@@ -10,7 +10,6 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
-
 from wagtail_localize.models import (
     String,
     StringSegment,
@@ -241,20 +240,11 @@ def get_translation_status(request, translation_id):
 
         translation = Translation.objects.get(id=translation_id)
 
-        print(
-            f"[GET_TRANSLATION_STATUS] translation_id={translation_id}, source={translation.source.id}, target_locale={translation.target_locale}"
-        )
-
         # Get all String IDs for this translation source
-
         string_ids = list(
             StringSegment.objects.filter(source=translation.source).values_list(
                 "string_id", flat=True
             )
-        )
-
-        print(
-            f"[GET_TRANSLATION_STATUS] Found {len(string_ids)} string_ids: {string_ids}"
         )
 
         # Get all string translations for these strings that are marked as "do not translate"
@@ -269,24 +259,13 @@ def get_translation_status(request, translation_id):
             .select_related("translation_of")
         )
 
-        print(
-            f"[GET_TRANSLATION_STATUS] Found {marked_translations.count()} marked translations"
-        )
-
         # Build a mapping of string ID -> status
         segments = {}
         for st in marked_translations:
-            print(
-                f"[GET_TRANSLATION_STATUS]   Marked segment: string_id={st.translation_of.id}, context='{st.context}', data='{st.data[:50]}...'"
-            )
             segments[str(st.translation_of.id)] = {
                 "do_not_translate": True,
                 "source_text": st.translation_of.data,
             }
-
-        print(
-            f"[GET_TRANSLATION_STATUS] Returning {len(segments)} segments: {list(segments.keys())}"
-        )
 
         return JsonResponse({"success": True, "segments": segments})
 
