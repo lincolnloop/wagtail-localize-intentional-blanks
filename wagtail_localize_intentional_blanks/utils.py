@@ -5,7 +5,6 @@ Utility functions for marking segments as "do not translate".
 import logging
 
 from django.db.models import Q
-
 from wagtail_localize.models import StringSegment, StringTranslation
 
 from .constants import get_setting
@@ -326,3 +325,91 @@ def get_segments_do_not_translate(translation):
     return StringSegment.objects.filter(
         source=translation.source, string_id__in=marked_string_ids
     )
+
+
+def migrate_do_not_translate_markers(translation_source, target_locale):
+    """
+    Migrate "Do Not Translate" markers when source Strings change.
+
+    When the source page content changes, wagtail-localize creates new String
+    objects. This function finds StringTranslation records with the marker that
+    point to old Strings and updates them to point to the current Strings based
+    on matching context paths.
+
+    This ensures that "Do Not Translate" markings persist across sync operations.
+
+    Args:
+        translation_source: TranslationSource instance
+        target_locale: Target Locale instance
+
+    Returns:
+        int: Number of StringTranslation records migrated
+
+    Example:
+        >>> from wagtail_localize.models import TranslationSource, Locale
+        >>> source = TranslationSource.objects.get(id=123)
+        >>> locale = Locale.objects.get(language_code='fr')
+        >>> count = migrate_do_not_translate_markers(source, locale)
+        >>> print(f"Migrated {count} markers")
+    """
+    validate_configuration()
+    marker = get_marker()
+    backup_separator = get_backup_separator()
+
+    # Get all current StringSegments for this source
+    current_segments = StringSegment.objects.filter(
+        source=translation_source
+    ).select_related("string", "context")
+
+    migrated_count = 0
+
+    # For each current segment, check if there's an old marker to migrate
+    for segment in current_segments:
+        # Find orphanzed markers - these are StringTranslations with the marker
+        # for this context+locale that DON'T point to the current String.
+        orphaned_markers = (
+            StringTranslation.objects.filter(
+                locale=target_locale,
+                context=segment.context,
+            )
+            .filter(Q(data=marker) | Q(data__startswith=marker + backup_separator))
+            .exclude(translation_of=segment.string)
+        )
+
+        # If we found orphaned markers, migrate them to the current String
+        for orphaned_marker in orphaned_markers:
+            old_string_id = orphaned_marker.translation_of_id
+            logger.info(
+                f"Migrating marker: context='{segment.context}', "
+                f"old_string_id={old_string_id} -> new_string_id={segment.string.id}, "
+                f"locale={target_locale}"
+            )
+
+            # Check if there's already a StringTranslation for the new String
+            # (this can happen if wagtail-localize created one during sync)
+            existing_for_new_string = StringTranslation.objects.filter(
+                translation_of=segment.string,
+                locale=target_locale,
+                context=segment.context,
+            ).exclude(id=orphaned_marker.id)
+
+            if existing_for_new_string.exists():
+                # Delete the existing one to avoid unique constraint violation
+                logger.info(
+                    f"Deleting existing StringTranslation for new String "
+                    f"to avoid conflict: {existing_for_new_string.first().id}"
+                )
+                existing_for_new_string.delete()
+
+            # Update the StringTranslation to point to the new String
+            orphaned_marker.translation_of = segment.string
+            orphaned_marker.save()
+
+            migrated_count += 1
+
+    if migrated_count > 0:
+        logger.info(
+            f"Migrated {migrated_count} 'Do Not Translate' markers for source {translation_source.id} to locale {target_locale}"
+        )
+
+    return migrated_count

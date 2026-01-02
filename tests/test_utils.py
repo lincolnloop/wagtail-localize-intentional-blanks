@@ -26,6 +26,7 @@ from wagtail_localize_intentional_blanks.utils import (
     get_source_fallback_stats,
     is_do_not_translate,
     mark_segment_do_not_translate,
+    migrate_do_not_translate_markers,
     unmark_segment_do_not_translate,
     validate_configuration,
 )
@@ -405,6 +406,240 @@ class TestUtilsFunctions(TestCase):
         """Test get_segments_do_not_translate with no marked segments."""
         result = get_segments_do_not_translate(self.translation)
         assert result.count() == 0
+
+    def test_migrate_do_not_translate_markers_updates_orphaned_markers(self):
+        """Test that migrate_do_not_translate_markers updates orphaned markers to new Strings."""
+        # Create initial String and mark as Do Not Translate
+        old_string = String.objects.create(data="Old Value", locale=self.source_locale)
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.migrate_field", defaults={"object": self.source.object}
+        )
+        segment = StringSegment.objects.create(
+            source=self.source,
+            string=old_string,
+            context=context_obj,
+            order=0,
+            attrs="{}",
+        )
+
+        mark_segment_do_not_translate(self.translation, segment)
+
+        # Verify marker is stored
+        old_st = StringTranslation.objects.get(
+            translation_of=old_string, locale=self.target_locale, context=context_obj
+        )
+        assert old_st.data == DO_NOT_TRANSLATE_MARKER
+
+        # Simulate source change: create new String and update segment
+        new_string = String.objects.create(data="New Value", locale=self.source_locale)
+        segment.string = new_string
+        segment.save()
+
+        # Call migration
+        count = migrate_do_not_translate_markers(self.source, self.target_locale)
+
+        # Verify migration happened
+        assert count == 1, "Should have migrated 1 marker"
+
+        # Verify the StringTranslation now points to new String
+        new_st = StringTranslation.objects.get(
+            translation_of=new_string, locale=self.target_locale, context=context_obj
+        )
+        assert new_st.data == DO_NOT_TRANSLATE_MARKER
+        assert new_st.id == old_st.id, "Should be same record, updated"
+
+        # Verify no orphaned markers left
+        orphaned = StringTranslation.objects.filter(
+            translation_of=old_string, locale=self.target_locale
+        )
+        assert orphaned.count() == 0
+
+    def test_migrate_do_not_translate_markers_preserves_backup(self):
+        """Test that migration preserves encoded backup in marker."""
+        # Create String with translation, then mark as Do Not Translate
+        old_string = String.objects.create(data="Original", locale=self.source_locale)
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.migrate_backup_field", defaults={"object": self.source.object}
+        )
+
+        # Create existing translation
+        StringTranslation.objects.create(
+            translation_of=old_string,
+            locale=self.target_locale,
+            context=context_obj,
+            data="French Translation",
+        )
+
+        segment = StringSegment.objects.create(
+            source=self.source,
+            string=old_string,
+            context=context_obj,
+            order=0,
+            attrs="{}",
+        )
+
+        # Mark as Do Not Translate (should encode backup)
+        mark_segment_do_not_translate(self.translation, segment)
+
+        # Verify backup is encoded
+        old_st = StringTranslation.objects.get(
+            translation_of=old_string, locale=self.target_locale, context=context_obj
+        )
+        expected = f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}French Translation"
+        assert old_st.data == expected
+
+        # Update to new String
+        new_string = String.objects.create(data="Updated", locale=self.source_locale)
+        segment.string = new_string
+        segment.save()
+
+        # Migrate
+        count = migrate_do_not_translate_markers(self.source, self.target_locale)
+        assert count == 1
+
+        # Verify backup is preserved
+        new_st = StringTranslation.objects.get(
+            translation_of=new_string, locale=self.target_locale, context=context_obj
+        )
+        assert new_st.data == expected, "Backup should be preserved in migrated marker"
+
+    def test_migrate_do_not_translate_markers_handles_multiple_contexts(self):
+        """Test that migration correctly handles multiple segments with different contexts."""
+        # Create two segments with different contexts
+        string1 = String.objects.create(data="Value 1", locale=self.source_locale)
+        string2 = String.objects.create(data="Value 2", locale=self.source_locale)
+
+        context1, _ = TranslationContext.objects.get_or_create(
+            path="test.field1", defaults={"object": self.source.object}
+        )
+        context2, _ = TranslationContext.objects.get_or_create(
+            path="test.field2", defaults={"object": self.source.object}
+        )
+
+        segment1 = StringSegment.objects.create(
+            source=self.source, string=string1, context=context1, order=0, attrs="{}"
+        )
+        segment2 = StringSegment.objects.create(
+            source=self.source, string=string2, context=context2, order=1, attrs="{}"
+        )
+
+        # Mark both as Do Not Translate
+        mark_segment_do_not_translate(self.translation, segment1)
+        mark_segment_do_not_translate(self.translation, segment2)
+
+        # Update both strings
+        new_string1 = String.objects.create(
+            data="New Value 1", locale=self.source_locale
+        )
+        new_string2 = String.objects.create(
+            data="New Value 2", locale=self.source_locale
+        )
+
+        segment1.string = new_string1
+        segment1.save()
+        segment2.string = new_string2
+        segment2.save()
+
+        # Migrate
+        count = migrate_do_not_translate_markers(self.source, self.target_locale)
+        assert count == 2, "Should migrate both markers"
+
+        # Verify both markers migrated correctly
+        st1 = StringTranslation.objects.get(
+            translation_of=new_string1, locale=self.target_locale, context=context1
+        )
+        st2 = StringTranslation.objects.get(
+            translation_of=new_string2, locale=self.target_locale, context=context2
+        )
+
+        assert st1.data == DO_NOT_TRANSLATE_MARKER
+        assert st2.data == DO_NOT_TRANSLATE_MARKER
+
+    def test_migrate_do_not_translate_markers_ignores_current_markers(self):
+        """Test that migration doesn't affect markers that already point to current Strings."""
+        # Create String and mark as Do Not Translate
+        string = String.objects.create(data="Current Value", locale=self.source_locale)
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.current_field", defaults={"object": self.source.object}
+        )
+        segment = StringSegment.objects.create(
+            source=self.source, string=string, context=context_obj, order=0, attrs="{}"
+        )
+
+        mark_segment_do_not_translate(self.translation, segment)
+
+        # Don't change the String - migration should find nothing to migrate
+        count = migrate_do_not_translate_markers(self.source, self.target_locale)
+        assert count == 0, "Should not migrate markers that are already current"
+
+        # Verify marker is still there and unchanged
+        st = StringTranslation.objects.get(
+            translation_of=string, locale=self.target_locale, context=context_obj
+        )
+        assert st.data == DO_NOT_TRANSLATE_MARKER
+
+    def test_migrate_do_not_translate_markers_handles_conflict(self):
+        """
+        Test that migration handles the case where a StringTranslation already exists for the new String.
+
+        This simulates what happens during wagtail-localize sync, where new StringTranslation
+        records are created for new Strings, which would conflict with our migration.
+        """
+        # Create initial String and mark as Do Not Translate
+        old_string = String.objects.create(data="Old Value", locale=self.source_locale)
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.conflict_field", defaults={"object": self.source.object}
+        )
+        segment = StringSegment.objects.create(
+            source=self.source,
+            string=old_string,
+            context=context_obj,
+            order=0,
+            attrs="{}",
+        )
+
+        mark_segment_do_not_translate(self.translation, segment)
+
+        # Get the marker StringTranslation
+        marker_st = StringTranslation.objects.get(
+            translation_of=old_string, locale=self.target_locale, context=context_obj
+        )
+        assert marker_st.data == DO_NOT_TRANSLATE_MARKER
+
+        # Simulate source change: create new String and update segment
+        new_string = String.objects.create(data="New Value", locale=self.source_locale)
+        segment.string = new_string
+        segment.save()
+
+        # Simulate wagtail-localize creating a new StringTranslation for the new String
+        # (this is what causes the unique constraint conflict)
+        conflicting_st = StringTranslation.objects.create(
+            translation_of=new_string,
+            locale=self.target_locale,
+            context=context_obj,
+            data="Some translation",  # Not a marker
+            translation_type=StringTranslation.TRANSLATION_TYPE_MACHINE,
+        )
+
+        # Call migration - should handle the conflict by deleting the conflicting record
+        count = migrate_do_not_translate_markers(self.source, self.target_locale)
+        assert count == 1, "Should have migrated 1 marker"
+
+        # Verify the marker was migrated successfully
+        migrated_st = StringTranslation.objects.get(
+            translation_of=new_string, locale=self.target_locale, context=context_obj
+        )
+        assert migrated_st.data == DO_NOT_TRANSLATE_MARKER
+        assert migrated_st.id == marker_st.id, "Should be the same record, updated"
+
+        # Verify the conflicting record was deleted
+        assert not StringTranslation.objects.filter(id=conflicting_st.id).exists()
+
+        # Verify no orphaned markers remain
+        orphaned = StringTranslation.objects.filter(
+            translation_of=old_string, locale=self.target_locale
+        )
+        assert orphaned.count() == 0
 
 
 @pytest.mark.django_db

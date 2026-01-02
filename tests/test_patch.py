@@ -5,10 +5,9 @@ Tests that the monkey-patch correctly replaces marker strings with source values
 when rendering translated pages.
 """
 
+import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-
-import pytest
 from wagtail.models import Locale, Page
 from wagtail_localize.models import (
     String,
@@ -18,6 +17,7 @@ from wagtail_localize.models import (
     TranslationContext,
     TranslationSource,
 )
+
 from wagtail_localize_intentional_blanks.constants import (
     BACKUP_SEPARATOR,
     DO_NOT_TRANSLATE_MARKER,
@@ -446,8 +446,9 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_template_segments(self):
         """Test that patch correctly processes template segments."""
-        from wagtail_localize.models import Template, TemplateSegment
         import uuid
+
+        from wagtail_localize.models import Template, TemplateSegment
 
         # Create a template
         template = Template.objects.create(
@@ -487,8 +488,8 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_related_object_segments(self):
         """Test that patch correctly processes related object segments."""
-        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
         from django.contrib.contenttypes.models import ContentType
+        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
 
         # Create a translatable target page
         target_page = Page(
@@ -537,8 +538,8 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_related_object_segments_with_fallback(self):
         """Test that patch uses fallback for related objects when translation doesn't exist."""
-        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
         from django.contrib.contenttypes.models import ContentType
+        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
 
         # Create a target page WITHOUT translation
         target_page = Page(
@@ -616,3 +617,124 @@ class TestPatchFunctionality(TestCase):
         overridable_seg = overridable_segments[0]
         assert overridable_seg.data == '{"value": "test data"}'
         assert overridable_seg.order == 400
+
+    def test_sync_via_update_translations_view_preserves_markers(self):
+        """
+        Integration test: markers persist and migrate when syncing via UpdateTranslationsView.
+
+        This tests the complete real-world workflow:
+        1. User marks a field as "Do Not Translate"
+        2. User modifies the source page content
+        3. User clicks "Sync translated pages" (calls UpdateTranslationsView)
+        4. The marker should be migrated to the new content and preserved
+        """
+        from django.test import Client
+        from django.urls import reverse
+
+        from tests.testapp.models import TestPage
+
+        # Step 1: Create a TestPage with actual content in a custom field
+        test_page = TestPage(
+            title="Test Page for Migration",
+            slug="test-migration-page",
+            locale=self.source_locale,
+            title_field="Original Title Field Content",
+        )
+        self.root_page.add_child(instance=test_page)
+
+        # Create translation source for this page
+        test_source, _ = TranslationSource.get_or_create_from_instance(test_page)
+
+        # Create translation
+        test_translation = Translation.objects.create(
+            source=test_source,
+            target_locale=self.target_locale,
+        )
+
+        # Step 2: Find the title_field segment and mark it as Do Not Translate
+        title_field_segment = StringSegment.objects.get(
+            source=test_source, context__path="title_field"
+        )
+
+        mark_segment_do_not_translate(
+            test_translation, title_field_segment, user=self.user
+        )
+
+        # Verify marker was created
+        original_string_id = title_field_segment.string.id
+        marker_st = StringTranslation.objects.get(
+            translation_of=title_field_segment.string,
+            locale=self.target_locale,
+            context=title_field_segment.context,
+        )
+        assert marker_st.data == DO_NOT_TRANSLATE_MARKER
+        original_marker_id = marker_st.id
+
+        # Step 3: Modify the page content (simulating user editing the source page)
+        test_page.title_field = "Updated Title Field Content"
+        test_page.save_revision().publish()
+
+        # Step 4: Call UpdateTranslationsView via HTTP
+        # This simulates the user clicking "Sync translated pages" in the admin
+        client = Client()
+
+        # Make sure the user has proper permissions
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save()
+
+        client.force_login(self.user)
+
+        # Get the proper URL using reverse
+        url = reverse("wagtail_localize:update_translations", args=[test_source.id])
+
+        # POST to sync translations
+        response = client.post(url, {})
+
+        # Should redirect on success (302) or return 200
+        assert response.status_code in [200, 302], (
+            f"Sync view failed with status {response.status_code}"
+        )
+
+        # Step 5: Verify the marker was migrated to the new String
+        # Get the title_field segment after refresh
+        title_field_segment_after = StringSegment.objects.get(
+            source=test_source, context__path="title_field"
+        )
+
+        # The String should have changed (new content)
+        assert title_field_segment_after.string.id != original_string_id, (
+            "String should have been updated to new content"
+        )
+        assert title_field_segment_after.string.data == "Updated Title Field Content"
+
+        # The marker should have been migrated to the new String
+        marker_st_after = StringTranslation.objects.get(
+            translation_of=title_field_segment_after.string,
+            locale=self.target_locale,
+            context=title_field_segment_after.context,
+        )
+        assert marker_st_after.data == DO_NOT_TRANSLATE_MARKER, (
+            "Marker should have been migrated to new String"
+        )
+        assert marker_st_after.id == original_marker_id, (
+            "Should be the same StringTranslation record, just updated"
+        )
+
+        # Step 6: Verify no orphaned marker remains on the old String
+        orphaned_markers = StringTranslation.objects.filter(
+            translation_of_id=original_string_id,
+            locale=self.target_locale,
+        )
+        assert orphaned_markers.count() == 0, (
+            "No markers should remain on the old String"
+        )
+
+        # Step 7: Verify the field renders with the NEW source value
+        segments = test_source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+        string_segments = [s for s in segments if hasattr(s, "string")]
+        assert any(
+            s.string.data == "Updated Title Field Content" for s in string_segments
+        ), "Field should render with new source value when marked as Do Not Translate"

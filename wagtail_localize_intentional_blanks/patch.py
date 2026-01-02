@@ -136,8 +136,47 @@ def apply_patch():
 
     This should be called from the app's ready() method.
     """
-    logger.info("Applying intentional blanks patch to wagtail-localize")
     TranslationSource._get_segments_for_translation = (
         _get_segments_for_translation_with_intentional_blanks
     )
-    logger.info("Patch applied successfully")
+
+    # Also patch update_from_db to migrate markers after syncing translated pages.
+    # If a user 1. marks a field as 'Do Not Translate', then 2. updates the
+    # source field value, then 3. clicks 'Sync translated pages', we want to
+    # make sure that the field remains marked as 'Do Not Translate'.
+    _patch_update_from_db()
+
+
+# Store the original update_from_db method
+_original_update_from_db = TranslationSource.update_from_db
+
+
+def _update_from_db_with_marker_migration(self):
+    """
+    Enhanced version of update_from_db that migrates markers after updating.
+
+    This ensures that when source content changes and is synced, any 'Do Not Translate'
+    markers are automatically migrated to the new Strings.
+    """
+    # Call the original method to perform the update
+    result = _original_update_from_db(self)
+
+    if not get_setting("ENABLED"):
+        return result
+
+    # After updating, migrate any orphaned markers for all target locales
+    from wagtail_localize.models import Translation
+
+    from .utils import migrate_do_not_translate_markers
+
+    translations = Translation.objects.filter(source=self)
+
+    for translation in translations:
+        migrate_do_not_translate_markers(self, translation.target_locale)
+
+    return result
+
+
+def _patch_update_from_db():
+    """Patch the update_from_db method to migrate markers after sync."""
+    TranslationSource.update_from_db = _update_from_db_with_marker_migration

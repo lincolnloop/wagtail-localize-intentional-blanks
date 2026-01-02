@@ -4,8 +4,12 @@ URL configuration for tests.
 
 from django.contrib import admin
 from django.urls import include, path
+from wagtail import urls as wagtail_urls
+from wagtail.admin import urls as wagtailadmin_urls
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("django-admin/", admin.site.urls),
+    path("admin/", include(wagtailadmin_urls)),
     path("intentional-blanks/", include("wagtail_localize_intentional_blanks.urls")),
+    path("", include(wagtail_urls)),
 ]
