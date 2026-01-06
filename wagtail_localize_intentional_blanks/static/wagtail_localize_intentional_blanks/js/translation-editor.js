@@ -46,10 +46,12 @@
                 return;
             }
 
-            // Create a map of segment IDs to source values for quick lookup
+            // Build a map: StringSegment ID → source value
+            // This matches how wagtail-localize links translations to segments
             const segmentMap = new Map();
             props.segments.forEach(segment => {
                 if (segment.type === 'string') {
+                    // segment.id is the StringSegment ID (primary key)
                     segmentMap.set(segment.id, segment.source);
                 }
             });
@@ -71,7 +73,8 @@
                         }
                     } else {
                         // No backup, use source value from segment
-                        const sourceValue = segmentMap.get(translation.string_id);
+                        // Use segment_id (not string_id) to look up the source value
+                        const sourceValue = segmentMap.get(translation.segment_id);
                         translation.data = sourceValue || '';
                     }
 
@@ -136,8 +139,9 @@
         try {
             const props = JSON.parse(editorContainer.dataset.props);
 
-            // Find the translation in initialStringTranslations
-            const translation = props.initialStringTranslations?.find(t => t.string_id === segmentId);
+            // Find the translation in initialStringTranslations by segment_id
+            // segmentId here is the StringSegment ID
+            const translation = props.initialStringTranslations?.find(t => t.segment_id === segmentId);
 
             if (translation) {
                 if (doNotTranslate) {
@@ -251,7 +255,12 @@
         segmentElements.forEach((container, index) => {
             if (index >= segmentsData.length) return;
 
-            const segmentId = segmentsData[index].id;
+            const segmentData = segmentsData[index];
+
+            // Use segment.id (StringSegment ID) - matches wagtail-localize's structure
+            // This is what the backend expects and what links to translations
+            const segmentId = segmentData.id;
+
             if (!segmentId) return;
 
             container.dataset.segmentId = segmentId;

@@ -4,11 +4,10 @@ Unit tests for views module.
 
 import json
 
+import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-
-import pytest
 from wagtail.models import Locale, Page
 from wagtail_localize.models import (
     String,
@@ -18,6 +17,7 @@ from wagtail_localize.models import (
     TranslationContext,
     TranslationSource,
 )
+
 from wagtail_localize_intentional_blanks.constants import (
     BACKUP_SEPARATOR,
     DO_NOT_TRANSLATE_MARKER,
@@ -186,10 +186,10 @@ class TestMarkSegmentView(TestCase):
 
         response = self.client.post(url, {"do_not_translate": "true"})
 
-        assert response.status_code == 400
+        assert response.status_code == 404
         data = json.loads(response.content)
         assert data["success"] is False
-        assert data["error"] == "String matching query does not exist."
+        assert "Segment" in data["error"] and "not found" in data["error"]
 
     def test_mark_segment_updates_existing_translation(self):
         """Test marking updates existing translation and encodes backup."""
@@ -205,7 +205,7 @@ class TestMarkSegmentView(TestCase):
 
         url = reverse(
             "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
-            args=[self.translation.id, self.string.id],
+            args=[self.translation.id, self.segment.id],
         )
 
         response = self.client.post(url, {"do_not_translate": "true"})
@@ -241,7 +241,7 @@ class TestMarkSegmentView(TestCase):
 
         url = reverse(
             "wagtail_localize_intentional_blanks:mark_segment_do_not_translate",
-            args=[self.translation.id, self.string.id],
+            args=[self.translation.id, self.segment.id],
         )
 
         # Mark it
@@ -589,16 +589,16 @@ class TestGetTranslationStatusView(TestCase):
         assert data["success"] is True
         assert len(data["segments"]) == 3
 
-        # Check that the correct segments are marked
+        # Check that the correct segments are marked (using StringSegment IDs)
         for i in [0, 2, 4]:
-            segment_id = str(self.strings[i].id)
+            segment_id = str(self.segments[i].id)
             assert segment_id in data["segments"]
             assert data["segments"][segment_id]["do_not_translate"] is True
             assert data["segments"][segment_id]["source_text"] == f"Test string {i}"
 
         # Check that unmarked segments are not in response
         for i in [1, 3]:
-            segment_id = str(self.strings[i].id)
+            segment_id = str(self.segments[i].id)
             assert segment_id not in data["segments"]
 
     def test_get_translation_status_all_marked_segments(self):
@@ -627,9 +627,9 @@ class TestGetTranslationStatusView(TestCase):
         assert data["success"] is True
         assert len(data["segments"]) == 5
 
-        # Check all segments are marked
+        # Check all segments are marked (using StringSegment IDs)
         for i in range(5):
-            segment_id = str(self.strings[i].id)
+            segment_id = str(self.segments[i].id)
             assert segment_id in data["segments"]
 
     def test_get_translation_status_invalid_translation_id(self):

@@ -11,7 +11,6 @@ from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from wagtail_localize.models import (
-    String,
     StringSegment,
     StringTranslation,
     Translation,
@@ -59,6 +58,10 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
     """
     Mark a translation segment as "do not translate".
 
+    Args:
+        translation_id: The Translation ID
+        segment_id: The StringSegment ID (not String ID)
+
     POST params:
         do_not_translate: bool - True to mark as do not translate, False to unmark
 
@@ -78,9 +81,24 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
 
         # Get objects
         translation = Translation.objects.get(id=translation_id)
-        # segment_id is actually the String ID from wagtail-localize's JSON
-        string = String.objects.get(id=segment_id)
-        segment = StringSegment.objects.get(source=translation.source, string=string)
+
+        # segment_id is the StringSegment ID (matches wagtail-localize's segment.id)
+        logger.info(
+            f"Marking segment as do not translate: translation_id={translation_id}, segment_id={segment_id}"
+        )
+
+        segment = StringSegment.objects.get(id=segment_id, source=translation.source)
+        string = segment.string
+
+        if not string:
+            logger.error(f"StringSegment {segment_id} has no associated String")
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"Segment {segment_id} has no associated String. The translation may be corrupted.",
+                },
+                status=400,
+            )
 
         # Get action - only accept explicit 'true' or 'false'
         do_not_translate_param = request.POST.get("do_not_translate", "").lower()
@@ -144,8 +162,15 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
         )
 
     except StringSegment.DoesNotExist:
+        logger.error(
+            f"StringSegment {segment_id} does not exist for translation {translation_id}"
+        )
         return JsonResponse(
-            {"success": False, "error": "Segment not found"}, status=404
+            {
+                "success": False,
+                "error": f"Segment {segment_id} not found. The translation may need to be re-synced.",
+            },
+            status=404,
         )
 
     except PermissionDenied as e:
@@ -165,7 +190,7 @@ def get_segment_status(request, translation_id, segment_id):
 
     Args:
         translation_id: The Translation ID
-        segment_id: The String ID (not StringSegment ID)
+        segment_id: The StringSegment ID (not String ID)
 
     Returns:
         JSON response with status info
@@ -177,9 +202,19 @@ def get_segment_status(request, translation_id, segment_id):
         check_permission(request.user)
 
         translation = Translation.objects.get(id=translation_id)
-        # segment_id is actually the String ID from wagtail-localize's JSON
-        string = String.objects.get(id=segment_id)
-        segment = StringSegment.objects.get(source=translation.source, string=string)
+
+        # segment_id is the StringSegment ID (matches wagtail-localize's segment.id)
+        segment = StringSegment.objects.get(id=segment_id, source=translation.source)
+        string = segment.string
+
+        if not string:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"Segment {segment_id} has no associated String.",
+                },
+                status=400,
+            )
 
         try:
             string_translation = StringTranslation.objects.get(
@@ -203,8 +238,22 @@ def get_segment_status(request, translation_id, segment_id):
             }
         )
 
-    except (Translation.DoesNotExist, StringSegment.DoesNotExist):
-        return JsonResponse({"success": False, "error": "Not found"}, status=404)
+    except Translation.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "error": "Translation not found"}, status=404
+        )
+
+    except StringSegment.DoesNotExist:
+        logger.error(
+            f"StringSegment {segment_id} does not exist for translation {translation_id}"
+        )
+        return JsonResponse(
+            {
+                "success": False,
+                "error": f"Segment {segment_id} not found. The translation may need to be re-synced.",
+            },
+            status=404,
+        )
 
     except PermissionDenied as e:
         return JsonResponse({"success": False, "error": str(e)}, status=403)
@@ -223,7 +272,7 @@ def get_translation_status(request, translation_id):
         translation_id: The Translation ID
 
     Returns:
-        JSON response with a mapping of segment IDs to their status
+        JSON response with a mapping of StringSegment IDs to their status
 
     Example:
         GET /intentional-blanks/translations/123/status/
@@ -234,23 +283,25 @@ def get_translation_status(request, translation_id):
                 "457": {"do_not_translate": false, "source_text": "World"}
             }
         }
+        (Keys are StringSegment IDs, not String IDs)
     """
     try:
         check_permission(request.user)
 
         translation = Translation.objects.get(id=translation_id)
 
-        # Get all String IDs for this translation source
-        string_ids = list(
-            StringSegment.objects.filter(source=translation.source).values_list(
-                "string_id", flat=True
-            )
-        )
-
-        # Get all string translations for these strings that are marked as "do not translate"
+        # Get all string translations for this translation source that are marked as "do not translate"
         validate_configuration()
         marker = get_setting("MARKER")
         backup_separator = get_backup_separator()
+
+        # Get all StringSegments for this source
+        all_segments = StringSegment.objects.filter(
+            source=translation.source
+        ).select_related("string")
+        string_ids = list(all_segments.values_list("string_id", flat=True))
+
+        # Get marked translations
         marked_translations = (
             StringTranslation.objects.filter(
                 locale=translation.target_locale, translation_of_id__in=string_ids
@@ -259,13 +310,20 @@ def get_translation_status(request, translation_id):
             .select_related("translation_of")
         )
 
-        # Build a mapping of string ID -> status
+        # Build a map: String ID -> StringSegment ID
+        string_to_segment_map = {seg.string_id: seg.id for seg in all_segments}
+
+        # Build a mapping of StringSegment ID -> status
         segments = {}
         for st in marked_translations:
-            segments[str(st.translation_of.id)] = {
-                "do_not_translate": True,
-                "source_text": st.translation_of.data,
-            }
+            string_id = st.translation_of.id
+            segment_id = string_to_segment_map.get(string_id)
+
+            if segment_id:
+                segments[str(segment_id)] = {
+                    "do_not_translate": True,
+                    "source_text": st.translation_of.data,
+                }
 
         return JsonResponse({"success": True, "segments": segments})
 
