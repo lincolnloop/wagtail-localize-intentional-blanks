@@ -8,9 +8,9 @@ A Wagtail library that extends [wagtail-localize](https://github.com/wagtail/wag
 
 ## Features
 
-- ✅ **Translator Control**: Translators decide which fields to not translate, not developers
-- ✅ **Per-Locale Flexibility**: German can use source while French translates
-- ✅ **Progress Tracking**: "Do not translate" segments count as translated
+- ✅ **Translator Control**: Translators decide which fields to not translate
+- ✅ **Per-Locale Flexibility**: One language can translate a value while another language can use the source value
+- ✅ **Progress Tracking**: "Do not translate" segments count as translated by `wagtail-localize`
 - ✅ **No Template Changes**: Works transparently with existing templates
 - ✅ **Drop-in Integration**: Minimal code changes required
 - ✅ **UI Included**: Adds "Do Not Translate" buttons to translation editor
@@ -25,7 +25,7 @@ pip install wagtail-localize-intentional-blanks
 
 ### 1. Add to INSTALLED_APPS
 
-**Important:** `wagtail_localize_intentional_blanks` must come **before** `wagtail_localize` in INSTALLED_APPS for template overrides to work.
+**Important:** `wagtail_localize_intentional_blanks` must come **before** `wagtail_localize` in `INSTALLED_APPS` for template overrides to work.
 
 ```python
 # settings.py
@@ -49,16 +49,9 @@ from django.urls import path, include
 urlpatterns = [
     # ... other patterns
     path(
-        'intentional-blanks/',
-        include('wagtail_localize_intentional_blanks.urls')
+        'intentional-blanks/', include('wagtail_localize_intentional_blanks.urls')
     ),
 ]
-```
-
-### 3. Run Migrations (if any)
-
-```bash
-python manage.py migrate
 ```
 
 That's it! The "Do Not Translate" button will now appear in the translation editor for all translatable fields. No code changes to your blocks or models required.
@@ -69,10 +62,10 @@ This library works by:
 
 1. **Adding UI controls** - JavaScript adds "Do Not Translate" checkboxes to the translation editor
 2. **Storing markers** - When checked, a marker string (`__DO_NOT_TRANSLATE__`) is stored in the translation
-3. **Automatic replacement** - When rendering pages, a monkey-patch intercepts segment retrieval and replaces markers with source values
+3. **Automatic replacement** - When rendering pages, a patch intercepts segment retrieval and replaces markers with source values
 4. **Progress tracking** - Marked segments count as "translated" for progress calculation
 
-**Key benefit:** No code changes to your blocks or models. The library handles everything automatically through monkey-patching wagtail-localize's internal methods.
+**Key benefit:** No code changes to your blocks or models. The library handles everything automatically through patching wagtail-localize's internal methods.
 
 ## Usage
 
@@ -81,8 +74,9 @@ This library works by:
 1. Open a page translation in wagtail-localize's editor
 2. For each segment, you'll see a "Mark 'Do Not Translate'" checkbox
 3. Check it to mark that segment as do not translate
-4. The segment counts as translated (shows green, contributes to progress)
+4. The segment counts as translated (shows green)
 5. When the page renders, it automatically shows the source value for that field
+6. If the value in the original page changes, and the translated pages are synced, the segment still counts as translated (shows green) and when the page renders, it shows the updated source value for that field
 
 ### Common Use Cases
 
@@ -98,7 +92,7 @@ You can customize behavior in your Django settings:
 ```python
 # settings.py
 
-# Disable the feature globally
+# Enable/disable the feature globally
 WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_ENABLED = True
 
 # Custom marker (advanced)
@@ -147,6 +141,10 @@ print(f"{stats['manually_translated']} segments manually translated")
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
+## Contributing
+
+Contributions are welcome!
+
 ## Development
 
 ### Setting Up for Development
@@ -184,29 +182,15 @@ pytest tests/test_views.py
 
 ### Code Quality
 
-Format code with black:
+Check code with ruff:
 ```bash
-black .
+ruff check .
 ```
 
-Sort imports with isort:
+Format with ruff:
 ```bash
-isort .
+ruff format .
 ```
-
-Check code style with flake8:
-```bash
-flake8 wagtail_localize_intentional_blanks tests
-```
-
-Type checking with mypy:
-```bash
-mypy wagtail_localize_intentional_blanks
-```
-
-## Contributing
-
-Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## Credits
 
