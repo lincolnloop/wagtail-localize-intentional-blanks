@@ -137,6 +137,10 @@ print(f"{stats['manually_translated']} segments manually translated")
 - Wagtail 5.2+
 - wagtail-localize 1.8+
 
+## Release
+
+In order to make a release, we add a git tag and push it to GitHub. We have a GitHub Action that releases the code to PyPI when we add a new tag.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
