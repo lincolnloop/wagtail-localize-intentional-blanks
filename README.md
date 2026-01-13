@@ -2,8 +2,8 @@
 
 A Wagtail library that extends [wagtail-localize](https://github.com/wagtail/wagtail-localize) to allow translators to mark translation segments as "do not translate". These segments count as translated (contributing to progress) but fall back to the source page's value when rendered.
 
-![url_intentionally_blank](docs/images/url_intentionally_blank.png)
-![number_intentionally_blank](docs/images/number_intentionally_blank.png)
+![url_intentionally_blank](https://raw.githubusercontent.com/lincolnloop/wagtail-localize-intentional-blanks/main/docs/images/url_intentionally_blank.png)
+![number_intentionally_blank](https://raw.githubusercontent.com/lincolnloop/wagtail-localize-intentional-blanks/main/docs/images/number_intentionally_blank.png)
 
 
 ## Features
