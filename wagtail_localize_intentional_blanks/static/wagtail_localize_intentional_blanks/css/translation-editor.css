@@ -7,6 +7,7 @@
     --intentional-blanks-light-grey: #f5f5f5;
     --intentional-blanks-dark-grey: #333;
     --intentional-blanks-teal: #007d7e;
+    --intentional-blanks-teal-dark: #006566;
     --intentional-blanks-light-green: #e8f5e9;
     --intentional-blanks-green: #4caf50;
     --intentional-blanks-white: white;
@@ -62,7 +63,9 @@
     border-left: 4px solid var(--intentional-blanks-green);
     padding-left: 12px;
     position: relative;
-    transition: background-color 0.3s ease, border-left 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        border-left 0.3s ease;
 }
 
 /* Badge that appears after field name */
@@ -96,13 +99,17 @@
 .do-not-translate textarea[readonly] {
     background-color: var(--intentional-blanks-light-grey);
     cursor: not-allowed;
-    transition: background-color 0.3s ease, opacity 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        opacity 0.3s ease;
 }
 
 /* Smooth transitions for input fields */
 input[type="text"],
 textarea {
-    transition: background-color 0.3s ease, opacity 0.3s ease;
+    transition:
+        background-color 0.3s ease,
+        opacity 0.3s ease;
 }
 
 /* Dark mode adjustments */
@@ -135,5 +142,40 @@ textarea {
         position: static;
         display: block;
         margin-bottom: 8px;
+    }
+}
+
+/* Bulk action button container */
+.intentional-blanks-bulk-action-container {
+    display: block;
+}
+
+/* Bulk action button */
+.intentional-blanks-bulk-button {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: var(--intentional-blanks-teal);
+    color: var(--intentional-blanks-white);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.intentional-blanks-bulk-button:hover:not(:disabled) {
+    background-color: var(--intentional-blanks-teal-dark);
+}
+
+.intentional-blanks-bulk-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Dark mode adjustments for bulk button */
+@media (prefers-color-scheme: dark) {
+    .intentional-blanks-bulk-action-container {
+        background-color: var(--intentional-blanks-dark-grey);
+        border-color: #555;
     }
 }

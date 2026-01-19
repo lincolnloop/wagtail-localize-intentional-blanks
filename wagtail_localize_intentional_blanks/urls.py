@@ -24,4 +24,9 @@ urlpatterns = [
         views.get_translation_status,
         name="get_translation_status",
     ),
+    path(
+        "translations/<int:translation_id>/toggle-all-do-not-translate/",
+        views.toggle_all_do_not_translate_view,
+        name="toggle_all_do_not_translate",
+    ),
 ]

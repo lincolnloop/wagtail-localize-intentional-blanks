@@ -18,6 +18,7 @@ from wagtail_localize.models import (
 
 from .constants import get_setting
 from .utils import (
+    bulk_mark_segments,
     get_backup_separator,
     is_do_not_translate,
     mark_segment_do_not_translate,
@@ -337,4 +338,138 @@ def get_translation_status(request, translation_id):
 
     except Exception as e:
         logger.exception("Error in get_translation_status")
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@login_required
+@require_POST
+def toggle_all_do_not_translate_view(request, translation_id):
+    """
+    Mark or unmark all translation segments as "do not translate" at once.
+
+    Args:
+        translation_id: The Translation ID
+
+    POST params:
+        do_not_translate: string - "true" to mark all, "false" to unmark all
+
+    Returns:
+        JSON response with affected segment IDs and counts
+
+    Example AJAX call:
+        fetch('/intentional-blanks/translations/123/toggle-all-do-not-translate/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: new FormData({do_not_translate: 'true'})
+        })
+    """
+    try:
+        # Check permissions
+        check_permission(request.user)
+
+        # Get translation object
+        translation = Translation.objects.get(id=translation_id)
+
+        # Get action - only accept explicit 'true' or 'false'
+        do_not_translate_param = request.POST.get("do_not_translate", "").lower()
+        if do_not_translate_param not in ("true", "false"):
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": 'Invalid do_not_translate parameter. Must be "true" or "false".',
+                },
+                status=400,
+            )
+
+        do_not_translate = do_not_translate_param == "true"
+
+        # Get all StringSegments for this translation's source
+        segments = StringSegment.objects.filter(
+            source=translation.source
+        ).select_related("string")
+
+        if not segments.exists():
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "No segments found for this translation.",
+                },
+                status=400,
+            )
+
+        segment_ids = []
+        segment_data = {}
+        affected_count = 0
+
+        if do_not_translate:
+            # Mark all segments
+            affected_count = bulk_mark_segments(
+                translation, segments, user=request.user
+            )
+            segment_ids = list(segments.values_list("id", flat=True))
+            message = f"Marked {affected_count} segments"
+        else:
+            # Unmark all segments
+            validate_configuration()
+            marker = get_setting("MARKER")
+            backup_separator = get_backup_separator()
+
+            for segment in segments:
+                if segment.string:  # Only process segments with valid strings
+                    result = unmark_segment_do_not_translate(translation, segment)
+                    if result > 0:
+                        affected_count += 1
+                        segment_ids.append(segment.id)
+
+                        # Get the translated value after unmarking
+                        translated_value = None
+                        try:
+                            existing_translation = StringTranslation.objects.get(
+                                translation_of=segment.string,
+                                locale=translation.target_locale,
+                                context=segment.context,
+                            )
+                            # Make sure it's not the marker or encoded marker format
+                            if (
+                                existing_translation.data != marker
+                                and not existing_translation.data.startswith(
+                                    marker + backup_separator
+                                )
+                            ):
+                                translated_value = existing_translation.data
+                        except StringTranslation.DoesNotExist:
+                            pass
+
+                        # Store segment data for frontend
+                        segment_data[segment.id] = {
+                            "translated_value": translated_value,
+                            "source_value": segment.string.data
+                            if segment.string
+                            else "",
+                        }
+
+            message = f"Unmarked {affected_count} segments"
+
+        return JsonResponse(
+            {
+                "success": True,
+                "affected_count": affected_count,
+                "segment_ids": segment_ids,
+                "segment_data": segment_data,
+                "do_not_translate": do_not_translate,
+                "message": message,
+            }
+        )
+
+    except Translation.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "error": "Translation not found"}, status=404
+        )
+
+    except PermissionDenied as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=403)
+
+    except Exception as e:
+        # Log the error
+        logger.exception("Error in toggle_all_do_not_translate_view")
         return JsonResponse({"success": False, "error": str(e)}, status=400)
