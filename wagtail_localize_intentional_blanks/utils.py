@@ -4,7 +4,9 @@ Utility functions for marking segments as "do not translate".
 
 import logging
 
+from django.db import transaction
 from django.db.models import Q
+from django.db.models.signals import post_save
 from wagtail_localize.models import StringSegment, StringTranslation
 
 from .constants import get_setting
@@ -268,6 +270,10 @@ def bulk_mark_segments(translation, segments, user=None):
     This function uses bulk_create and bulk_update to minimize database queries,
     making it highly performant even for large numbers of segments.
 
+    Note: This function manually triggers post_save signals for created and updated
+    StringTranslations to ensure other parts of the system (like wagtail-localize)
+    are notified of changes.
+
     Args:
         translation: Translation instance
         segments: Iterable of StringSegment instances
@@ -281,8 +287,6 @@ def bulk_mark_segments(translation, segments, user=None):
         >>> count = bulk_mark_segments(translation, segments)
         >>> print(f"Marked {count} segments")
     """
-    from django.db import transaction
-
     validate_configuration()
     marker = get_marker()
     backup_separator = get_backup_separator()
@@ -341,11 +345,23 @@ def bulk_mark_segments(translation, segments, user=None):
         updated_count = 0
 
         if to_create:
+            # Perform bulk create
             StringTranslation.objects.bulk_create(to_create, batch_size=500)
             created_count = len(to_create)
             logger.info(f"Bulk created {created_count} StringTranslations")
 
+            # Manually trigger post_save signals since bulk_create doesn't trigger them
+            for st in to_create:
+                post_save.send(
+                    sender=StringTranslation,
+                    instance=st,
+                    created=True,
+                    update_fields=None,
+                    raw=False,
+                )
+
         if to_update:
+            # Perform bulk update
             StringTranslation.objects.bulk_update(
                 to_update,
                 ["data", "last_translated_by", "translation_type"],
@@ -353,6 +369,16 @@ def bulk_mark_segments(translation, segments, user=None):
             )
             updated_count = len(to_update)
             logger.info(f"Bulk updated {updated_count} StringTranslations")
+
+            # Manually trigger post_save signals since bulk_update doesn't trigger them
+            for st in to_update:
+                post_save.send(
+                    sender=StringTranslation,
+                    instance=st,
+                    created=False,
+                    update_fields=["data", "last_translated_by", "translation_type"],
+                    raw=False,
+                )
 
         return created_count + updated_count
 
@@ -363,6 +389,10 @@ def bulk_unmark_segments(translation, segments):
 
     This function uses bulk operations to minimize database queries, making it
     much faster than unmarking segments one by one.
+
+    Note: This function manually triggers post_save signals for updated StringTranslations
+    to ensure other parts of the system (like wagtail-localize) are notified of changes.
+    The delete() method automatically triggers pre_delete and post_delete signals.
 
     Args:
         translation: Translation instance
@@ -378,8 +408,6 @@ def bulk_unmark_segments(translation, segments):
         >>> count, data = bulk_unmark_segments(translation, segments)
         >>> print(f"Unmarked {count} segments")
     """
-    from django.db import transaction
-
     validate_configuration()
     marker = get_marker()
     backup_separator = get_backup_separator()
@@ -445,13 +473,25 @@ def bulk_unmark_segments(translation, segments):
         updated_count = 0
 
         if to_delete:
+            # delete() triggers pre_delete and post_delete signals automatically
             deleted_count, _ = marked_translations.filter(id__in=to_delete).delete()
             logger.info(f"Bulk deleted {deleted_count} StringTranslations")
 
         if to_update:
+            # Perform bulk update
             StringTranslation.objects.bulk_update(to_update, ["data"], batch_size=500)
             updated_count = len(to_update)
             logger.info(f"Bulk updated {updated_count} StringTranslations")
+
+            # Manually trigger post_save signals since bulk_update doesn't trigger them
+            for st in to_update:
+                post_save.send(
+                    sender=StringTranslation,
+                    instance=st,
+                    created=False,
+                    update_fields=["data"],
+                    raw=False,
+                )
 
         return deleted_count + updated_count, segment_data
 

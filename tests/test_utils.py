@@ -19,6 +19,10 @@ from wagtail_localize_intentional_blanks.constants import (
     BACKUP_SEPARATOR,
     DO_NOT_TRANSLATE_MARKER,
 )
+from unittest.mock import Mock
+
+from django.db.models.signals import post_save
+
 from wagtail_localize_intentional_blanks.utils import (
     bulk_mark_segments,
     bulk_unmark_segments,
@@ -729,6 +733,127 @@ class TestUtilsFunctions(TestCase):
             assert not StringTranslation.objects.filter(
                 translation_of=segments[i].string, locale=self.target_locale
             ).exists()
+
+    def test_bulk_mark_segments_triggers_signals(self):
+        """Test that bulk_mark_segments triggers post_save signals."""
+        # Create segments
+        segments = []
+        for i in range(3):
+            string = String.objects.create(
+                data=f"Test string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.signal_mark_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+
+        # Create one existing translation to test update signal
+        StringTranslation.objects.create(
+            translation_of=segments[0].string,
+            locale=self.target_locale,
+            context=segments[0].context,
+            data="Existing translation",
+        )
+
+        # Set up signal handler mock
+        signal_handler = Mock()
+        post_save.connect(signal_handler, sender=StringTranslation)
+
+        try:
+            # Call bulk_mark_segments
+            count = bulk_mark_segments(self.translation, segments)
+
+            # Verify signals were triggered
+            # Should be called 3 times: 1 update (existing) + 2 creates (new)
+            assert count == 3, "Should have marked 3 segments"
+            assert signal_handler.call_count == 3, (
+                f"Expected 3 post_save signals, got {signal_handler.call_count}"
+            )
+
+            # Verify signal calls have correct parameters
+            calls = signal_handler.call_args_list
+            created_count = sum(
+                1 for call in calls if call.kwargs.get("created") is True
+            )
+            updated_count = sum(
+                1 for call in calls if call.kwargs.get("created") is False
+            )
+
+            assert created_count == 2, (
+                f"Expected 2 created signals, got {created_count}"
+            )
+            assert updated_count == 1, f"Expected 1 updated signal, got {updated_count}"
+
+        finally:
+            # Clean up signal handler
+            post_save.disconnect(signal_handler, sender=StringTranslation)
+
+    def test_bulk_unmark_segments_triggers_signals(self):
+        """Test that bulk_unmark_segments triggers post_save signals for updates."""
+        # Create segments with backups (will trigger update signals)
+        segments = []
+        for i in range(3):
+            string = String.objects.create(
+                data=f"Test string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.signal_unmark_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+
+            # Create existing translation
+            StringTranslation.objects.create(
+                translation_of=string,
+                locale=self.target_locale,
+                context=context_obj,
+                data=f"Translation {i}",
+            )
+            # Mark it (creates backup)
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Set up signal handler mock
+        signal_handler = Mock()
+        post_save.connect(signal_handler, sender=StringTranslation)
+
+        try:
+            # Call bulk_unmark_segments
+            count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+            # Verify signals were triggered
+            # Should be called 3 times: all 3 segments have backups so they're updated
+            assert count == 3, "Should have unmarked 3 segments"
+            assert signal_handler.call_count == 3, (
+                f"Expected 3 post_save signals, got {signal_handler.call_count}"
+            )
+
+            # Verify all signals are updates (created=False)
+            for call in signal_handler.call_args_list:
+                assert call.kwargs.get("created") is False, (
+                    "All signals should be updates, not creates"
+                )
+                assert call.kwargs.get("update_fields") == ["data"], (
+                    "Update fields should be ['data']"
+                )
+
+        finally:
+            # Clean up signal handler
+            post_save.disconnect(signal_handler, sender=StringTranslation)
 
     def test_get_segments_do_not_translate(self):
         """Test get_segments_do_not_translate returns marked segments."""
