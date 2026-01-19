@@ -2,6 +2,16 @@
  * Styles for Intentional Blanks UI
  */
 
+/* Color variables */
+:root {
+    --intentional-blanks-light-grey: #f5f5f5;
+    --intentional-blanks-dark-grey: #333;
+    --intentional-blanks-teal: #007d7e;
+    --intentional-blanks-light-green: #e8f5e9;
+    --intentional-blanks-green: #4caf50;
+    --intentional-blanks-white: white;
+}
+
 /* Checkbox container */
 .do-not-translate-checkbox-container {
     display: inline-flex;
@@ -14,7 +24,7 @@
 }
 
 .do-not-translate-checkbox-container:hover {
-    background-color: #f5f5f5;
+    background-color: var(--intentional-blanks-light-grey);
 }
 
 /* Checkbox styling */
@@ -23,7 +33,7 @@
     height: 16px;
     cursor: pointer;
     margin: 0;
-    accent-color: #007d7e;
+    accent-color: var(--intentional-blanks-teal);
 }
 
 .do-not-translate-checkbox:disabled {
@@ -34,7 +44,7 @@
 /* Label styling */
 .do-not-translate-label {
     font-size: 13px;
-    color: #333;
+    color: var(--intentional-blanks-dark-grey);
     cursor: pointer;
     margin: 0;
     user-select: none;
@@ -48,8 +58,8 @@
 
 /* Segment marked as do not translate */
 .do-not-translate {
-    background-color: #e8f5e9;
-    border-left: 4px solid #4caf50;
+    background-color: var(--intentional-blanks-light-green);
+    border-left: 4px solid var(--intentional-blanks-green);
     padding-left: 12px;
     position: relative;
     transition: background-color 0.3s ease, border-left 0.3s ease;
@@ -58,8 +68,8 @@
 /* Badge that appears after field name */
 .do-not-translate-badge {
     display: inline-block;
-    background: #4caf50;
-    color: white;
+    background: var(--intentional-blanks-green);
+    color: var(--intentional-blanks-white);
     padding: 2px 8px;
     border-radius: 3px;
     font-size: 11px;
@@ -84,7 +94,7 @@
 /* Input field when marked as do not translate */
 .do-not-translate input[readonly],
 .do-not-translate textarea[readonly] {
-    background-color: #f5f5f5;
+    background-color: var(--intentional-blanks-light-grey);
     cursor: not-allowed;
     transition: background-color 0.3s ease, opacity 0.3s ease;
 }
@@ -98,11 +108,11 @@ textarea {
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
     .do-not-translate-checkbox-container:hover {
-        background-color: #333;
+        background-color: var(--intentional-blanks-dark-grey);
     }
 
     .do-not-translate-label {
-        color: #f5f5f5;
+        color: var(--intentional-blanks-light-grey);
     }
 
     .do-not-translate {
