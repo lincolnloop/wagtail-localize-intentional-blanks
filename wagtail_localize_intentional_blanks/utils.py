@@ -263,7 +263,10 @@ def get_source_fallback_stats(translation):
 
 def bulk_mark_segments(translation, segments, user=None):
     """
-    Mark multiple segments as "do not translate" in a single operation.
+    Mark multiple segments as "do not translate" using optimized batch operations.
+
+    This function uses bulk_create and bulk_update to minimize database queries,
+    making it highly performant even for large numbers of segments.
 
     Args:
         translation: Translation instance
@@ -274,17 +277,183 @@ def bulk_mark_segments(translation, segments, user=None):
         int: Number of segments marked
 
     Example:
-        >>> segments = StringSegment.objects.filter(source=source)[:10]
+        >>> segments = StringSegment.objects.filter(source=source)
         >>> count = bulk_mark_segments(translation, segments)
         >>> print(f"Marked {count} segments")
     """
-    count = 0
+    from django.db import transaction
 
-    for segment in segments:
-        mark_segment_do_not_translate(translation, segment, user=user)
-        count += 1
+    validate_configuration()
+    marker = get_marker()
+    backup_separator = get_backup_separator()
 
-    return count
+    with transaction.atomic():
+        # Convert to list if needed and filter out segments without strings
+        segments = [s for s in segments if s.string_id]
+
+        if not segments:
+            return 0
+
+        # Fetch existing translations once - single query
+        string_ids = [s.string_id for s in segments]
+        existing_translations = StringTranslation.objects.filter(
+            translation_of_id__in=string_ids,
+            locale=translation.target_locale,
+        ).select_related("translation_of")
+
+        # Build lookup dict: (string_id, context) -> translation
+        existing_map = {
+            (st.translation_of_id, st.context): st for st in existing_translations
+        }
+
+        to_create = []
+        to_update = []
+
+        for segment in segments:
+            key = (segment.string_id, segment.context)
+            existing = existing_map.get(key)
+
+            if existing:
+                # Check if we need to backup
+                if existing.data != marker and not existing.data.startswith(
+                    marker + backup_separator
+                ):
+                    existing.data = f"{marker}{backup_separator}{existing.data}"
+                else:
+                    existing.data = marker
+                existing.last_translated_by = user
+                existing.translation_type = StringTranslation.TRANSLATION_TYPE_MANUAL
+                to_update.append(existing)
+            else:
+                to_create.append(
+                    StringTranslation(
+                        translation_of=segment.string,
+                        locale=translation.target_locale,
+                        context=segment.context,
+                        data=marker,
+                        translation_type=StringTranslation.TRANSLATION_TYPE_MANUAL,
+                        last_translated_by=user,
+                    )
+                )
+
+        # Batch operations - 2 queries total instead of 2*N
+        created_count = 0
+        updated_count = 0
+
+        if to_create:
+            StringTranslation.objects.bulk_create(to_create, batch_size=500)
+            created_count = len(to_create)
+            logger.info(f"Bulk created {created_count} StringTranslations")
+
+        if to_update:
+            StringTranslation.objects.bulk_update(
+                to_update,
+                ["data", "last_translated_by", "translation_type"],
+                batch_size=500,
+            )
+            updated_count = len(to_update)
+            logger.info(f"Bulk updated {updated_count} StringTranslations")
+
+        return created_count + updated_count
+
+
+def bulk_unmark_segments(translation, segments):
+    """
+    Unmark multiple segments from "do not translate" using optimized batch operations.
+
+    This function uses bulk operations to minimize database queries, making it
+    much faster than unmarking segments one by one.
+
+    Args:
+        translation: Translation instance
+        segments: Iterable of StringSegment instances
+
+    Returns:
+        tuple: (affected_count: int, segment_data: dict)
+            - affected_count: Number of segments unmarked
+            - segment_data: Dict mapping segment IDs to their data (translated_value, source_value)
+
+    Example:
+        >>> segments = StringSegment.objects.filter(source=source)
+        >>> count, data = bulk_unmark_segments(translation, segments)
+        >>> print(f"Unmarked {count} segments")
+    """
+    from django.db import transaction
+
+    validate_configuration()
+    marker = get_marker()
+    backup_separator = get_backup_separator()
+
+    with transaction.atomic():
+        # Convert to list if needed and filter out segments without strings
+        segments = [s for s in segments if s.string_id]
+
+        if not segments:
+            return 0, {}
+
+        # Build lookup: string_id -> segment for quick access
+        string_to_segment = {s.string_id: s for s in segments}
+
+        # Fetch all relevant translations once - single query
+        string_ids = [s.string_id for s in segments]
+        marked_translations = (
+            StringTranslation.objects.filter(
+                translation_of_id__in=string_ids, locale=translation.target_locale
+            )
+            .filter(Q(data=marker) | Q(data__startswith=marker + backup_separator))
+            .select_related("translation_of", "context")
+        )
+
+        to_delete = []
+        to_update = []
+        segment_data = {}
+
+        for st in marked_translations:
+            segment = string_to_segment.get(st.translation_of_id)
+            if not segment:
+                continue
+
+            # Check if has backup
+            if st.data.startswith(marker + backup_separator):
+                # Extract backup data
+                parts = st.data.split(backup_separator, 1)
+                if len(parts) > 1:
+                    backup_data = parts[1]
+                    st.data = backup_data
+                    to_update.append(st)
+                    segment_data[segment.id] = {
+                        "translated_value": backup_data,
+                        "source_value": segment.string.data if segment.string else "",
+                    }
+                else:
+                    # Malformed backup, delete it
+                    to_delete.append(st.id)
+                    segment_data[segment.id] = {
+                        "translated_value": None,
+                        "source_value": segment.string.data if segment.string else "",
+                    }
+            else:
+                # No backup, delete the marker
+                to_delete.append(st.id)
+                segment_data[segment.id] = {
+                    "translated_value": None,
+                    "source_value": segment.string.data if segment.string else "",
+                }
+
+        # Batch operations - 2 queries instead of 3*N
+        deleted_count = 0
+        updated_count = 0
+
+        if to_delete:
+            deleted_count, _ = marked_translations.filter(id__in=to_delete).delete()
+            logger.info(f"Bulk deleted {deleted_count} StringTranslations")
+
+        if to_update:
+            StringTranslation.objects.bulk_update(to_update, ["data"], batch_size=500)
+            updated_count = len(to_update)
+            logger.info(f"Bulk updated {updated_count} StringTranslations")
+
+        return deleted_count + updated_count, segment_data
 
 
 def get_segments_do_not_translate(translation):

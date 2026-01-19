@@ -6,6 +6,7 @@ import logging
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
@@ -19,6 +20,7 @@ from wagtail_localize.models import (
 from .constants import get_setting
 from .utils import (
     bulk_mark_segments,
+    bulk_unmark_segments,
     get_backup_separator,
     is_do_not_translate,
     mark_segment_do_not_translate,
@@ -347,6 +349,9 @@ def toggle_all_do_not_translate_view(request, translation_id):
     """
     Mark or unmark all translation segments as "do not translate" at once.
 
+    This view uses optimized batch operations to minimize database queries,
+    making it performant even for translations with hundreds of segments.
+
     Args:
         translation_id: The Translation ID
 
@@ -384,11 +389,14 @@ def toggle_all_do_not_translate_view(request, translation_id):
         do_not_translate = do_not_translate_param == "true"
 
         # Get all StringSegments for this translation's source
-        segments = StringSegment.objects.filter(
-            source=translation.source
-        ).select_related("string")
+        # Convert to list to avoid multiple queries
+        segments = list(
+            StringSegment.objects.filter(source=translation.source).select_related(
+                "string"
+            )
+        )
 
-        if not segments.exists():
+        if not segments:
             return JsonResponse(
                 {
                     "success": False,
@@ -397,58 +405,25 @@ def toggle_all_do_not_translate_view(request, translation_id):
                 status=400,
             )
 
-        segment_ids = []
-        segment_data = {}
-        affected_count = 0
-
-        if do_not_translate:
-            # Mark all segments
-            affected_count = bulk_mark_segments(
-                translation, segments, user=request.user
-            )
-            segment_ids = list(segments.values_list("id", flat=True))
-            message = f"Marked {affected_count} segments"
-        else:
-            # Unmark all segments
-            validate_configuration()
-            marker = get_setting("MARKER")
-            backup_separator = get_backup_separator()
-
-            for segment in segments:
-                if segment.string:  # Only process segments with valid strings
-                    result = unmark_segment_do_not_translate(translation, segment)
-                    if result > 0:
-                        affected_count += 1
-                        segment_ids.append(segment.id)
-
-                        # Get the translated value after unmarking
-                        translated_value = None
-                        try:
-                            existing_translation = StringTranslation.objects.get(
-                                translation_of=segment.string,
-                                locale=translation.target_locale,
-                                context=segment.context,
-                            )
-                            # Make sure it's not the marker or encoded marker format
-                            if (
-                                existing_translation.data != marker
-                                and not existing_translation.data.startswith(
-                                    marker + backup_separator
-                                )
-                            ):
-                                translated_value = existing_translation.data
-                        except StringTranslation.DoesNotExist:
-                            pass
-
-                        # Store segment data for frontend
-                        segment_data[segment.id] = {
-                            "translated_value": translated_value,
-                            "source_value": segment.string.data
-                            if segment.string
-                            else "",
-                        }
-
-            message = f"Unmarked {affected_count} segments"
+        # Use optimized batch operations wrapped in a transaction
+        with transaction.atomic():
+            if do_not_translate:
+                # Mark all segments using optimized batch operation
+                affected_count = bulk_mark_segments(
+                    translation, segments, user=request.user
+                )
+                segment_ids = [s.id for s in segments]
+                segment_data = {}
+                message = f"Marked {affected_count} segments"
+            else:
+                # Unmark all segments using optimized batch operation
+                # Returns (affected_count, segment_data) where segment_data includes
+                # both translated_value and source_value for each segment
+                affected_count, segment_data = bulk_unmark_segments(
+                    translation, segments
+                )
+                segment_ids = list(segment_data.keys())
+                message = f"Unmarked {affected_count} segments"
 
         return JsonResponse(
             {

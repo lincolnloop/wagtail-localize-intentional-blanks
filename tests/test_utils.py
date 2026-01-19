@@ -21,6 +21,7 @@ from wagtail_localize_intentional_blanks.constants import (
 )
 from wagtail_localize_intentional_blanks.utils import (
     bulk_mark_segments,
+    bulk_unmark_segments,
     get_marker,
     get_segments_do_not_translate,
     get_source_fallback_stats,
@@ -347,6 +348,387 @@ class TestUtilsFunctions(TestCase):
         """Test bulk_mark_segments with empty list."""
         count = bulk_mark_segments(self.translation, [], user=self.user)
         assert count == 0
+
+    def test_bulk_unmark_segments_without_backups(self):
+        """Test bulk_unmark_segments deletes segments without backups."""
+        # Create segments and mark them (no existing translations, so no backups)
+        segments = []
+        for i in range(5):
+            string = String.objects.create(
+                data=f"Test string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_field_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Verify all are marked
+        for segment in segments:
+            assert StringTranslation.objects.filter(
+                translation_of=segment.string,
+                locale=self.target_locale,
+                data=DO_NOT_TRANSLATE_MARKER,
+            ).exists()
+
+        # Bulk unmark
+        count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+        assert count == 5, "Should have unmarked 5 segments"
+        assert len(segment_data) == 5, "Should have data for 5 segments"
+
+        # Verify all are unmarked (deleted)
+        for segment in segments:
+            assert not StringTranslation.objects.filter(
+                translation_of=segment.string, locale=self.target_locale
+            ).exists()
+            # Check segment_data structure
+            assert segment.id in segment_data
+            assert segment_data[segment.id]["translated_value"] is None
+            assert segment_data[segment.id]["source_value"] == segment.string.data
+
+    def test_bulk_unmark_segments_with_backups(self):
+        """Test bulk_unmark_segments restores segments with backups."""
+        # Create segments with existing translations, then mark them
+        segments = []
+        original_translations = {}
+        for i in range(5):
+            string = String.objects.create(
+                data=f"Test string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_backup_field_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+
+            # Create existing translation first
+            original_translation = f"Original translation {i}"
+            original_translations[segment.id] = original_translation
+            StringTranslation.objects.create(
+                translation_of=string,
+                locale=self.target_locale,
+                context=context_obj,
+                data=original_translation,
+            )
+
+            # Mark as do not translate (should encode backup)
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Verify all have encoded backups
+        for segment in segments:
+            st = StringTranslation.objects.get(
+                translation_of=segment.string, locale=self.target_locale
+            )
+            expected = f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}{original_translations[segment.id]}"
+            assert st.data == expected
+
+        # Bulk unmark
+        count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+        assert count == 5, "Should have unmarked 5 segments"
+        assert len(segment_data) == 5, "Should have data for 5 segments"
+
+        # Verify all backups are restored
+        for segment in segments:
+            st = StringTranslation.objects.get(
+                translation_of=segment.string, locale=self.target_locale
+            )
+            assert st.data == original_translations[segment.id]
+            # Check segment_data structure
+            assert segment.id in segment_data
+            assert (
+                segment_data[segment.id]["translated_value"]
+                == original_translations[segment.id]
+            )
+            assert segment_data[segment.id]["source_value"] == segment.string.data
+
+    def test_bulk_unmark_segments_mixed(self):
+        """Test bulk_unmark_segments with a mix of segments with and without backups."""
+        segments = []
+        segments_with_backup = []
+        segments_without_backup = []
+        backup_data = {}
+
+        # Create 3 segments with backups
+        for i in range(3):
+            string = String.objects.create(
+                data=f"String with backup {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_mixed_backup_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+            segments_with_backup.append(segment)
+
+            # Create existing translation
+            original = f"Backup translation {i}"
+            backup_data[segment.id] = original
+            StringTranslation.objects.create(
+                translation_of=string,
+                locale=self.target_locale,
+                context=context_obj,
+                data=original,
+            )
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Create 2 segments without backups
+        for i in range(2):
+            string = String.objects.create(
+                data=f"String without backup {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_mixed_no_backup_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 10,
+            )
+            segments.append(segment)
+            segments_without_backup.append(segment)
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Bulk unmark all
+        count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+        assert count == 5, "Should have unmarked 5 segments"
+        assert len(segment_data) == 5, "Should have data for 5 segments"
+
+        # Verify segments with backups are restored
+        for segment in segments_with_backup:
+            st = StringTranslation.objects.get(
+                translation_of=segment.string, locale=self.target_locale
+            )
+            assert st.data == backup_data[segment.id]
+            assert (
+                segment_data[segment.id]["translated_value"] == backup_data[segment.id]
+            )
+
+        # Verify segments without backups are deleted
+        for segment in segments_without_backup:
+            assert not StringTranslation.objects.filter(
+                translation_of=segment.string, locale=self.target_locale
+            ).exists()
+            assert segment_data[segment.id]["translated_value"] is None
+
+    def test_bulk_unmark_segments_empty_list(self):
+        """Test bulk_unmark_segments with empty list."""
+        count, segment_data = bulk_unmark_segments(self.translation, [])
+        assert count == 0
+        assert segment_data == {}
+
+    def test_bulk_unmark_segments_not_marked(self):
+        """Test bulk_unmark_segments with segments that aren't marked."""
+        # Create segments without marking them
+        segments = []
+        for i in range(3):
+            string = String.objects.create(
+                data=f"Unmarked string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_not_marked_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+
+            # Create regular translation (not marked)
+            StringTranslation.objects.create(
+                translation_of=string,
+                locale=self.target_locale,
+                context=context_obj,
+                data=f"Regular translation {i}",
+            )
+
+        # Try to bulk unmark - should do nothing
+        count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+        assert count == 0, "Should not unmark any segments"
+        assert segment_data == {}, "Should have no segment data"
+
+        # Verify translations are unchanged
+        for i, segment in enumerate(segments):
+            st = StringTranslation.objects.get(
+                translation_of=segment.string, locale=self.target_locale
+            )
+            assert st.data == f"Regular translation {i}"
+
+    def test_bulk_unmark_segments_partial_marked(self):
+        """Test bulk_unmark_segments when only some segments are marked."""
+        segments = []
+        marked_segments = []
+
+        # Create 3 marked segments
+        for i in range(3):
+            string = String.objects.create(
+                data=f"Marked string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_partial_marked_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+            marked_segments.append(segment)
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Create 2 unmarked segments
+        for i in range(2):
+            string = String.objects.create(
+                data=f"Unmarked string {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_partial_unmarked_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 10,
+            )
+            segments.append(segment)
+
+        # Bulk unmark all (should only affect marked ones)
+        count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+        assert count == 3, "Should have unmarked only 3 marked segments"
+        assert len(segment_data) == 3, "Should have data for 3 segments"
+
+        # Verify only marked segments were affected
+        for segment in marked_segments:
+            assert segment.id in segment_data
+
+    def test_bulk_unmark_segments_query_efficiency(self):
+        """Test that bulk_unmark_segments uses efficient bulk operations."""
+        # Create 7 segments with backups (will be updated)
+        num_updates = 7
+        num_deletes = 7
+        segments = []
+        for i in range(num_updates):
+            string = String.objects.create(
+                data=f"String with backup {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_query_backup_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + 1,
+            )
+            segments.append(segment)
+            # Create existing translation
+            StringTranslation.objects.create(
+                translation_of=string,
+                locale=self.target_locale,
+                context=context_obj,
+                data=f"Translation {i}",
+            )
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Create 7 segments without backups (will be deleted)
+        for i in range(num_deletes):
+            string = String.objects.create(
+                data=f"String without backup {i}",
+                locale=self.source_locale,
+            )
+            context_obj, _ = TranslationContext.objects.get_or_create(
+                path=f"test.bulk_unmark_query_no_backup_{i}",
+                defaults={"object": self.source.object},
+            )
+            segment = StringSegment.objects.create(
+                source=self.source,
+                string=string,
+                context=context_obj,
+                order=i + num_updates,
+            )
+            segments.append(segment)
+            mark_segment_do_not_translate(self.translation, segment)
+
+        # Test query count - verifies bulk operations are used
+        # Expected query formula: 6 + N_deletes
+        # Query breakdown:
+        # 1. SAVEPOINT
+        # 2. SELECT marked translations (with select_related for translation_of and context)
+        # 3. SELECT for delete preparation (Django ORM requirement - refetches for CASCADE)
+        # 4. DELETE bulk operation (single query regardless of count)
+        # 5-N. Context lookups during CASCADE checks (N queries for N deletions)
+        #      This is a Django ORM limitation when handling FK CASCADE relationships
+        # N+1. UPDATE bulk operation (single query regardless of count)
+        # N+2. RELEASE SAVEPOINT
+        #
+        # Note: Despite the N context lookups, this is still FAR more efficient than
+        # calling unmark_segment_do_not_translate() in a loop, which would be ~3*N queries.
+        # The core DELETE and UPDATE operations are true bulk operations (1 query each).
+        expected_queries = 6 + num_deletes  # 6 base queries + N context lookups
+        with self.assertNumQueries(expected_queries):
+            count, segment_data = bulk_unmark_segments(self.translation, segments)
+
+        total_segments = num_updates + num_deletes
+        assert count == total_segments, (
+            f"Should have unmarked {total_segments} segments"
+        )
+        assert len(segment_data) == total_segments, (
+            f"Should have data for {total_segments} segments"
+        )
+
+        # Verify the bulk operations worked correctly
+        for i in range(num_updates):
+            # Segments with backups should be restored
+            st = StringTranslation.objects.get(
+                translation_of=segments[i].string, locale=self.target_locale
+            )
+            assert st.data == f"Translation {i}"
+
+        # Segments without backups should be deleted
+        for i in range(num_updates, num_updates + num_deletes):
+            assert not StringTranslation.objects.filter(
+                translation_of=segments[i].string, locale=self.target_locale
+            ).exists()
 
     def test_get_segments_do_not_translate(self):
         """Test get_segments_do_not_translate returns marked segments."""
