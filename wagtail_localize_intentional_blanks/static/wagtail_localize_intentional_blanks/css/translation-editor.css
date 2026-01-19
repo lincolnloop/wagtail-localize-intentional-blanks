@@ -95,6 +95,21 @@ textarea {
     transition: background-color 0.3s ease, opacity 0.3s ease;
 }
 
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    .do-not-translate-checkbox-container:hover {
+        background-color: #333;
+    }
+
+    .do-not-translate-label {
+        color: #f5f5f5;
+    }
+
+    .do-not-translate {
+        background-color: transparent;
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .do-not-translate-checkbox-container {
