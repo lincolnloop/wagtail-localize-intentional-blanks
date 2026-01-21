@@ -175,7 +175,6 @@ textarea {
 /* Dark mode adjustments for bulk button */
 @media (prefers-color-scheme: dark) {
     .intentional-blanks-bulk-action-container {
-        background-color: var(--intentional-blanks-dark-grey);
         border-color: #555;
     }
 }
