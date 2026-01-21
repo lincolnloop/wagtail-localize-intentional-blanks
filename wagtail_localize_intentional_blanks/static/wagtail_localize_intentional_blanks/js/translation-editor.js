@@ -713,6 +713,31 @@
   let bulkButton = null;
 
   /**
+   * Update bulk button text while preserving the icon
+   */
+  function updateBulkButtonText(button, text) {
+    // Find and update only the text node, preserving the icon
+    for (let i = 0; i < button.childNodes.length; i++) {
+      if (button.childNodes[i].nodeType === Node.TEXT_NODE) {
+        button.childNodes[i].textContent = text;
+        return;
+      }
+    }
+  }
+
+  /**
+   * Get current bulk button text (without icon)
+   */
+  function getBulkButtonText(button) {
+    for (let i = 0; i < button.childNodes.length; i++) {
+      if (button.childNodes[i].nodeType === Node.TEXT_NODE) {
+        return button.childNodes[i].textContent;
+      }
+    }
+    return "";
+  }
+
+  /**
    * Create the bulk action button element
    */
   function createBulkActionButton() {
@@ -723,10 +748,27 @@
 
     // Create button
     const button = document.createElement("button");
-    button.className = "intentional-blanks-bulk-button";
-    button.textContent = config.bulkActions.buttonText.markAll;
+    // button.className = "intentional-blanks-bulk-button";
+    button.className =
+      "button button-primary button--icon intentional-blanks-bulk-button";
     button.type = "button";
     button.dataset.mode = config.bulkActions.modes.mark;
+
+    // Create icon
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("class", "icon icon-wagtail-localize-language");
+    icon.setAttribute("aria-hidden", "true");
+
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", "#icon-wagtail-localize-language");
+
+    icon.appendChild(use);
+    button.appendChild(icon);
+
+    // Add text content after icon
+    button.appendChild(
+      document.createTextNode(config.bulkActions.buttonText.markAll),
+    );
 
     // Add click event
     button.addEventListener("click", handleBulkActionClick);
@@ -802,11 +844,11 @@
 
     if (checkedCheckboxes === totalCheckboxes) {
       // All checked - show "Unmark All"
-      bulkButton.textContent = config.bulkActions.buttonText.unmarkAll;
+      updateBulkButtonText(bulkButton, config.bulkActions.buttonText.unmarkAll);
       bulkButton.dataset.mode = config.bulkActions.modes.unmark;
     } else {
       // At least one unchecked - show "Mark All"
-      bulkButton.textContent = config.bulkActions.buttonText.markAll;
+      updateBulkButtonText(bulkButton, config.bulkActions.buttonText.markAll);
       bulkButton.dataset.mode = config.bulkActions.modes.mark;
     }
 
@@ -825,11 +867,13 @@
 
     // Disable button during operation
     bulkButton.disabled = true;
-    const originalText = bulkButton.textContent;
-    bulkButton.textContent =
+    const originalText = getBulkButtonText(bulkButton);
+    updateBulkButtonText(
+      bulkButton,
       mode === config.bulkActions.modes.mark
         ? config.bulkActions.buttonText.marking
-        : config.bulkActions.buttonText.unmarking;
+        : config.bulkActions.buttonText.unmarking,
+    );
 
     const operation =
       mode === config.bulkActions.modes.mark
@@ -844,7 +888,7 @@
       .catch((error) => {
         // Error - restore button
         console.error("Bulk action failed:", error);
-        bulkButton.textContent = originalText;
+        updateBulkButtonText(bulkButton, originalText);
         bulkButton.disabled = false;
       });
   }

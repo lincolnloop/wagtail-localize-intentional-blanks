@@ -151,18 +151,6 @@ textarea {
 }
 
 /* Bulk action button */
-.intentional-blanks-bulk-button {
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    background-color: var(--intentional-blanks-teal);
-    color: var(--intentional-blanks-white);
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
 .intentional-blanks-bulk-button:hover:not(:disabled) {
     background-color: var(--intentional-blanks-teal-dark);
 }
