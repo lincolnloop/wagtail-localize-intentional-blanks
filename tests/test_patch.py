@@ -6,16 +6,25 @@ when rendering translated pages.
 """
 
 import pytest
+import uuid
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.contrib.contenttypes.models import ContentType
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
 from wagtail.models import Locale, Page
 from wagtail_localize.models import (
+    MissingTranslationError,
+    OverridableSegment,
+    RelatedObjectSegment,
     String,
     StringSegment,
     StringTranslation,
+    Template,
+    TemplateSegment,
     Translation,
     TranslationContext,
     TranslationSource,
+    TranslatableObject,
 )
 
 from wagtail_localize_intentional_blanks.constants import (
@@ -23,6 +32,7 @@ from wagtail_localize_intentional_blanks.constants import (
     DO_NOT_TRANSLATE_MARKER,
 )
 from wagtail_localize_intentional_blanks.utils import mark_segment_do_not_translate
+
 
 User = get_user_model()
 
@@ -417,8 +427,6 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_raises_missing_translation_error_without_fallback(self):
         """Test that MissingTranslationError is raised when translation is missing and fallback=False."""
-        from wagtail_localize.models import MissingTranslationError
-
         # Create a string segment without translation
         source_value = "Untranslated Text"
         string = String.objects.create(
@@ -446,10 +454,6 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_template_segments(self):
         """Test that patch correctly processes template segments."""
-        import uuid
-
-        from wagtail_localize.models import Template, TemplateSegment
-
         # Create a template
         template = Template.objects.create(
             uuid=uuid.uuid4(),
@@ -488,9 +492,6 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_related_object_segments(self):
         """Test that patch correctly processes related object segments."""
-        from django.contrib.contenttypes.models import ContentType
-        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
-
         # Create a translatable target page
         target_page = Page(
             title="Related Page EN", slug="related-en", locale=self.source_locale
@@ -538,9 +539,6 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_related_object_segments_with_fallback(self):
         """Test that patch uses fallback for related objects when translation doesn't exist."""
-        from django.contrib.contenttypes.models import ContentType
-        from wagtail_localize.models import RelatedObjectSegment, TranslatableObject
-
         # Create a target page WITHOUT translation
         target_page = Page(
             title="Untranslated Related",
@@ -593,8 +591,6 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_overridable_segments(self):
         """Test that patch correctly processes overridable segments."""
-        from wagtail_localize.models import OverridableSegment
-
         # Create an overridable segment
         context_obj, _ = TranslationContext.objects.get_or_create(
             path="test.overridable_field", defaults={"object": self.source.object}
@@ -634,9 +630,6 @@ class TestPatchFunctionality(TestCase):
         3. User clicks "Sync translated pages" (calls UpdateTranslationsView)
         4. The marker should be migrated to the new content and preserved
         """
-        from django.test import Client
-        from django.urls import reverse
-
         from tests.testapp.models import TestPage
 
         # Step 1: Create a TestPage with actual content in a custom field
