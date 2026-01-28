@@ -101,21 +101,27 @@ def _get_segments_for_translation_with_intentional_blanks(self, locale, fallback
         "object"
     )
     for related_object_segment in related_object_segments:
-        try:
-            instance = related_object_segment.object.get_instance(locale)
-        except related_object_segment.object.content_type.model_class().DoesNotExist:
-            if fallback:
-                instance = related_object_segment.object.get_instance(self.locale)
-            else:
-                raise
-
-        segment_value = RelatedObjectSegmentValue(
-            related_object_segment.context.path,
-            related_object_segment.object.content_type,
-            instance.pk,
-        ).with_order(related_object_segment.order)
-
-        segments.append(segment_value)
+        if related_object_segment.object.has_translation(locale):
+            # Object exists in target locale - use RelatedObjectSegmentValue
+            segment_value = RelatedObjectSegmentValue(
+                related_object_segment.context.path,
+                related_object_segment.object.content_type,
+                related_object_segment.object.translation_key,
+            ).with_order(related_object_segment.order)
+            segments.append(segment_value)
+        elif fallback:
+            # Object doesn't exist in target locale - fall back to source locale object
+            # Use OverridableSegmentValue to reference by PK without locale lookup
+            source_instance = related_object_segment.object.get_instance(self.locale)
+            segment_value = OverridableSegmentValue(
+                related_object_segment.context.path,
+                source_instance.pk,
+            ).with_order(related_object_segment.order)
+            segments.append(segment_value)
+        else:
+            raise related_object_segment.object.content_type.model_class().DoesNotExist(
+                f"Related object {related_object_segment.object} does not exist in locale {locale}"
+            )
 
     # Handle overridable segments (no locale filter needed - they're source-specific)
     overridable_segments = self.overridablesegment_set.all().select_related("context")

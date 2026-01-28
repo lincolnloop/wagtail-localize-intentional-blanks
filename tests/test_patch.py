@@ -498,7 +498,7 @@ class TestPatchFunctionality(TestCase):
         self.root_page.add_child(instance=target_page)
 
         # Create translated version
-        translated_page = target_page.copy_for_translation(self.target_locale)
+        target_page.copy_for_translation(self.target_locale)
 
         # Create a translatable object
         page_ct = ContentType.objects.get_for_model(Page)
@@ -530,10 +530,10 @@ class TestPatchFunctionality(TestCase):
             "Should have at least one related object segment"
         )
 
-        # Verify related object (note: patch.py stores instance.pk in translation_key attribute)
+        # Verify related object uses translation_key (UUID), not pk
         related_seg = related_segments[0]
         assert related_seg.content_type == page_ct
-        assert related_seg.translation_key == translated_page.pk
+        assert related_seg.translation_key == target_page.translation_key
         assert related_seg.order == 200
 
     def test_patch_handles_related_object_segments_with_fallback(self):
@@ -573,17 +573,23 @@ class TestPatchFunctionality(TestCase):
             self.target_locale, fallback=True
         )
 
-        # Should use source locale instance as fallback
-        related_segments = [
-            s for s in segments if s.__class__.__name__ == "RelatedObjectSegmentValue"
+        # When fallback is used and translation doesn't exist, should return
+        # OverridableSegmentValue with source object's pk (not RelatedObjectSegmentValue)
+        overridable_segments = [
+            s for s in segments if s.__class__.__name__ == "OverridableSegmentValue"
         ]
-        assert len(related_segments) > 0, (
-            "Should have at least one related object segment"
+
+        # Find the one for our related field
+        related_fallback_segments = [
+            s for s in overridable_segments if "related_fallback_field" in s.path
+        ]
+        assert len(related_fallback_segments) > 0, (
+            "Should have OverridableSegmentValue for untranslated related object"
         )
 
-        # Verify it used the source page as fallback (note: patch.py stores instance.pk in translation_key attribute)
-        related_seg = related_segments[0]
-        assert related_seg.translation_key == target_page.pk
+        # Verify it contains the source page's pk
+        related_seg = related_fallback_segments[0]
+        assert related_seg.data == target_page.pk
 
     def test_patch_handles_overridable_segments(self):
         """Test that patch correctly processes overridable segments."""
