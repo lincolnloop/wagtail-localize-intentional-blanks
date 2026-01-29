@@ -676,6 +676,97 @@ class TestPatchFunctionality(TestCase):
             "href should not end with a quote - JSON was not parsed"
         )
 
+    def test_patch_uses_translated_href_not_source_href(self):
+        """Test that translated/overridden hrefs are used instead of source hrefs."""
+        from wagtail_localize.models import OverridableSegment, SegmentOverride
+
+        # Create an overridable segment with a source href
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.translated_href_field",
+            defaults={"object": self.source.object},
+        )
+        source_href = "/en/original-page"
+        OverridableSegment.objects.create(
+            source=self.source,
+            context=context_obj,
+            data_json=json.dumps(source_href),
+            order=600,
+        )
+
+        # Create a SegmentOverride with a translated href for the target locale
+        translated_href = "/fr/page-traduite"
+        SegmentOverride.objects.create(
+            locale=self.target_locale,
+            context=context_obj,
+            data_json=json.dumps(translated_href),
+        )
+
+        # Get segments for translation (use fallback=True to avoid MissingTranslationError
+        # for other segments like title/slug that don't have translations in this test)
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Find our href segment
+        overridable_segments = [
+            s
+            for s in segments
+            if s.__class__.__name__ == "OverridableSegmentValue"
+            and "translated_href_field" in s.path
+        ]
+        assert len(overridable_segments) == 1, (
+            "Should have exactly one translated href segment"
+        )
+
+        overridable_seg = overridable_segments[0]
+
+        # The data should be the TRANSLATED href, not the source href
+        assert overridable_seg.data == translated_href, (
+            f"href should be translated value '{translated_href}', "
+            f"not source value '{overridable_seg.data}'"
+        )
+
+    def test_patch_falls_back_to_source_href_when_no_override(self):
+        """Test that source href is used when no override exists and fallback=True."""
+        from wagtail_localize.models import OverridableSegment
+
+        # Create an overridable segment with a source href (no override)
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.fallback_href_field",
+            defaults={"object": self.source.object},
+        )
+        source_href = "/en/source-only-page"
+        OverridableSegment.objects.create(
+            source=self.source,
+            context=context_obj,
+            data_json=json.dumps(source_href),
+            order=700,
+        )
+
+        # Get segments for translation WITH fallback mode
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Find our href segment
+        overridable_segments = [
+            s
+            for s in segments
+            if s.__class__.__name__ == "OverridableSegmentValue"
+            and "fallback_href_field" in s.path
+        ]
+        assert len(overridable_segments) == 1, (
+            "Should have exactly one fallback href segment"
+        )
+
+        overridable_seg = overridable_segments[0]
+
+        # With fallback=True and no override, should use source href
+        assert overridable_seg.data == source_href, (
+            f"In fallback mode without override, href should be source value "
+            f"'{source_href}', not '{overridable_seg.data}'"
+        )
+
     def test_sync_via_update_translations_view_preserves_markers(self):
         """
         Integration test: markers persist and migrate when syncing via UpdateTranslationsView.

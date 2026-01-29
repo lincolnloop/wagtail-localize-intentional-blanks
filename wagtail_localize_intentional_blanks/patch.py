@@ -123,12 +123,28 @@ def _get_segments_for_translation_with_intentional_blanks(self, locale, fallback
                 f"Related object {related_object_segment.object} does not exist in locale {locale}"
             )
 
-    # Handle overridable segments (no locale filter needed - they're source-specific)
-    overridable_segments = self.overridablesegment_set.all().select_related("context")
+    # Handle overridable segments
+    # Use annotate_override_json to get translated/overridden values for the target locale
+    from wagtail_localize.models import OverridableSegment
+
+    overridable_segments = (
+        OverridableSegment.objects.filter(source=self)
+        .annotate_override_json(locale)
+        .select_related("context")
+    )
     for overridable_segment in overridable_segments:
+        # Use override_json (translated value) if available, otherwise fall back to data_json
+        if overridable_segment.override_json is not None:
+            data = json.loads(overridable_segment.override_json)
+        elif fallback:
+            data = json.loads(overridable_segment.data_json)
+        else:
+            # No override and no fallback - skip this segment
+            continue
+
         segment_value = OverridableSegmentValue(
             overridable_segment.context.path,
-            json.loads(overridable_segment.data_json),  # Parse JSON to get actual value
+            data,
         ).with_order(overridable_segment.order)
 
         segments.append(segment_value)
