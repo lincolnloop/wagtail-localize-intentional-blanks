@@ -5,6 +5,7 @@ Tests that the monkey-patch correctly replaces marker strings with source values
 when rendering translated pages.
 """
 
+import json
 import pytest
 import uuid
 from django.contrib.auth import get_user_model
@@ -591,7 +592,7 @@ class TestPatchFunctionality(TestCase):
 
     def test_patch_handles_overridable_segments(self):
         """Test that patch correctly processes overridable segments."""
-        # Create an overridable segment
+        # Create an overridable segment with a JSON object
         context_obj, _ = TranslationContext.objects.get_or_create(
             path="test.overridable_field", defaults={"object": self.source.object}
         )
@@ -615,10 +616,65 @@ class TestPatchFunctionality(TestCase):
             "Should have at least one overridable segment"
         )
 
-        # Verify overridable content
+        # Verify overridable content - data should be parsed from JSON
         overridable_seg = overridable_segments[0]
-        assert overridable_seg.data == '{"value": "test data"}'
+        assert overridable_seg.data == {"value": "test data"}
         assert overridable_seg.order == 400
+
+    def test_patch_handles_overridable_href_segments_without_double_quoting(self):
+        """Test that href values in overridable segments don't get double-quoted.
+
+        Regression test for bug where href values like '/en/about' were being
+        rendered as <a href='"/en/about"'> (with embedded quotes) because the
+        data_json field was not being parsed.
+        """
+        # Create an overridable segment with an href value (as stored for rich text links)
+        # In wagtail-localize, hrefs from rich text are stored as JSON strings
+        context_obj, _ = TranslationContext.objects.get_or_create(
+            path="test.href_field", defaults={"object": self.source.object}
+        )
+        # The href value is stored as a JSON-encoded string
+        href_value = "/en/about-page"
+        OverridableSegment.objects.create(
+            source=self.source,
+            context=context_obj,
+            data_json=json.dumps(href_value),  # Results in '"/en/about-page"'
+            order=500,
+        )
+
+        # Get segments for translation
+        segments = self.source._get_segments_for_translation(
+            self.target_locale, fallback=True
+        )
+
+        # Find our href segment
+        overridable_segments = [
+            s
+            for s in segments
+            if s.__class__.__name__ == "OverridableSegmentValue"
+            and "href_field" in s.path
+        ]
+        assert len(overridable_segments) == 1, (
+            "Should have exactly one href overridable segment"
+        )
+
+        overridable_seg = overridable_segments[0]
+
+        # The data should be the actual href string, not a JSON-encoded string
+        # Bug: Before fix, this would be '"/en/about-page"' (with embedded quotes)
+        # Fixed: Should be '/en/about-page' (plain string)
+        assert overridable_seg.data == href_value, (
+            f"href should be '{href_value}', not '{overridable_seg.data}' - "
+            "data_json was not properly parsed from JSON"
+        )
+
+        # Verify no embedded quotes that would cause HTML rendering issues
+        assert not overridable_seg.data.startswith('"'), (
+            "href should not start with a quote - JSON was not parsed"
+        )
+        assert not overridable_seg.data.endswith('"'), (
+            "href should not end with a quote - JSON was not parsed"
+        )
 
     def test_sync_via_update_translations_view_preserves_markers(self):
         """

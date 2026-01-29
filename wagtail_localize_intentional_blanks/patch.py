@@ -128,7 +128,7 @@ def _get_segments_for_translation_with_intentional_blanks(self, locale, fallback
     for overridable_segment in overridable_segments:
         segment_value = OverridableSegmentValue(
             overridable_segment.context.path,
-            overridable_segment.data_json,  # Use data_json field
+            json.loads(overridable_segment.data_json),  # Parse JSON to get actual value
         ).with_order(overridable_segment.order)
 
         segments.append(segment_value)
