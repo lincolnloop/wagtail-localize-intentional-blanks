@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wagtail-localize-intentional-blanks"
-version = "0.2.3"
+version = "0.2.4"
 description = "Allow translators to mark wagtail-localize segments as 'do not translate'"
 readme = "README.md"
 requires-python = ">=3.10"
