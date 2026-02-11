@@ -2,8 +2,7 @@
 Signal handlers for wagtail-localize integration.
 
 These handlers implement the intentional blanks functionality using
-wagtail-localize's signal-based extension mechanism, replacing the
-previous monkey-patching approach.
+wagtail-localize's signal-based extension mechanism.
 """
 
 import logging
