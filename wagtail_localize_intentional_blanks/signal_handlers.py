@@ -72,11 +72,23 @@ def handle_post_source_update(sender, source, **kwargs):
 
 def register_signal_handlers():
     """Register all signal handlers."""
-    process_string_segment.connect(handle_process_string_segment)
-    post_source_update.connect(handle_post_source_update)
+    process_string_segment.connect(
+        handle_process_string_segment,
+        dispatch_uid="intentional_blanks_process_string_segment",
+    )
+    post_source_update.connect(
+        handle_post_source_update,
+        dispatch_uid="intentional_blanks_post_source_update",
+    )
 
 
 def unregister_signal_handlers():
     """Unregister all signal handlers (useful for testing)."""
-    process_string_segment.disconnect(handle_process_string_segment)
-    post_source_update.disconnect(handle_post_source_update)
+    process_string_segment.disconnect(
+        handle_process_string_segment,
+        dispatch_uid="intentional_blanks_process_string_segment",
+    )
+    post_source_update.disconnect(
+        handle_post_source_update,
+        dispatch_uid="intentional_blanks_post_source_update",
+    )
