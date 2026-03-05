@@ -10,7 +10,7 @@ to be translated, and fall back to the source page's value when rendered.
 :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "0.2.4"
+__version__ = "0.3.0"
 __author__ = "Lincoln Loop, LLC"
 __license__ = "MIT"
 
