@@ -1,0 +1,119 @@
+# Russian translations for wagtail-localize-intentional-blanks.
+# Copyright (C) 2026 Lincoln Loop, LLC
+# This file is distributed under the same license as the
+# wagtail-localize-intentional-blanks package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: wagtail-localize-intentional-blanks 0.2.4\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-05 18:10-0500\n"
+"PO-Revision-Date: 2026-03-05 18:10-0500\n"
+"Last-Translator: \n"
+"Language-Team: Russian\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
+
+#: apps.py:8
+msgid "Wagtail Localize Intentional Blanks"
+msgstr "Wagtail Localize — намеренные пропуски"
+
+#: templatetags/intentional_blanks.py:67
+msgid "Mark 'Do Not Translate'"
+msgstr "Отметить «Не переводить»"
+
+#: templatetags/intentional_blanks.py:68
+msgid "Mark All 'Do Not Translate'"
+msgstr "Отметить все «Не переводить»"
+
+#: templatetags/intentional_blanks.py:69
+msgid "Unmark All 'Do Not Translate'"
+msgstr "Снять все отметки «Не переводить»"
+
+#: templatetags/intentional_blanks.py:70
+msgid "Marking..."
+msgstr "Отмечаем…"
+
+#: templatetags/intentional_blanks.py:71
+msgid "Unmarking..."
+msgstr "Снимаем отметки…"
+
+#: templatetags/intentional_blanks.py:72
+msgid "Using source value"
+msgstr "Используется исходное значение"
+
+#: templatetags/intentional_blanks.py:73
+msgid "Mark All fields as 'Do Not Translate'"
+msgstr "Отметить все поля как «Не переводить»"
+
+#: templatetags/intentional_blanks.py:74
+msgid "Failed to update segment"
+msgstr "Не удалось обновить сегмент"
+
+#: templatetags/intentional_blanks.py:75
+msgid "Network error occurred"
+msgstr "Произошла сетевая ошибка"
+
+#: templatetags/intentional_blanks.py:76
+msgid "Failed to mark all segments"
+msgstr "Не удалось отметить все сегменты"
+
+#: templatetags/intentional_blanks.py:77
+msgid "Failed to unmark all segments"
+msgstr "Не удалось снять отметки со всех сегментов"
+
+#: views.py:104
+#, python-format
+msgid "Segment %(segment_id)s has no associated String. The translation may be corrupted."
+msgstr "У сегмента %(segment_id)s нет связанной строки. Перевод может быть повреждён."
+
+#: views.py:118 views.py:399
+msgid "Invalid do_not_translate parameter. Must be \"true\" or \"false\"."
+msgstr "Недопустимое значение параметра do_not_translate. Должно быть \"true\" или \"false\"."
+
+#: views.py:128
+msgid "Segment marked as do not translate"
+msgstr "Сегмент отмечен как «Не переводить»"
+
+#: views.py:131
+msgid "Segment unmarked, ready for manual translation"
+msgstr "Отметка снята, сегмент готов к ручному переводу"
+
+#: views.py:171 views.py:257 views.py:349 views.py:465
+msgid "Translation not found"
+msgstr "Перевод не найден"
+
+#: views.py:182 views.py:268
+#, python-format
+msgid "Segment %(segment_id)s not found. The translation may need to be re-synced."
+msgstr "Сегмент %(segment_id)s не найден. Возможно, перевод необходимо синхронизировать заново."
+
+#: views.py:227
+#, python-format
+msgid "Segment %(segment_id)s has no associated String."
+msgstr "У сегмента %(segment_id)s нет связанной строки."
+
+#: views.py:419
+msgid "No segments found for this translation."
+msgstr "Для этого перевода сегменты не найдены."
+
+#: views.py:434
+#, python-format
+msgid "Marked %(count)s segment"
+msgid_plural "Marked %(count)s segments"
+msgstr[0] "Отмечен %(count)s сегмент"
+msgstr[1] "Отмечено %(count)s сегмента"
+msgstr[2] "Отмечено %(count)s сегментов"
+msgstr[3] "Отмечено %(count)s сегментов"
+
+#: views.py:447
+#, python-format
+msgid "Unmarked %(count)s segment"
+msgid_plural "Unmarked %(count)s segments"
+msgstr[0] "Снята отметка с %(count)s сегмента"
+msgstr[1] "Сняты отметки с %(count)s сегментов"
+msgstr[2] "Сняты отметки с %(count)s сегментов"
+msgstr[3] "Сняты отметки с %(count)s сегментов"
