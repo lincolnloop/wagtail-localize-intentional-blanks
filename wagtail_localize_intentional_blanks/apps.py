@@ -1,10 +1,11 @@
 from django.apps import AppConfig
+from django.utils.translation import gettext_lazy as _
 
 
 class IntentionalBlanksConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "wagtail_localize_intentional_blanks"
-    verbose_name = "Wagtail Localize Intentional Blanks"
+    verbose_name = _("Wagtail Localize Intentional Blanks")
 
     def ready(self):
         """

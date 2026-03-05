@@ -1,5 +1,5 @@
 {% extends "wagtail_localize/admin/edit_translation.html" %}
-{% load static %}
+{% load static intentional_blanks %}
 
 {% block extra_css %}
     {{ block.super }}
@@ -8,10 +8,14 @@
 
 {% block extra_js %}
     {{ block.super }}
+    {% intentional_blanks_i18n %}
     <script>
         // Pass configuration from Django to JavaScript
         window.INTENTIONAL_BLANKS_API_URL = '/intentional-blanks/';
         window.TRANSLATION_ID = {{ translation.id|default:"null" }};
+        window.INTENTIONAL_BLANKS_I18N = JSON.parse(
+            document.getElementById('intentional-blanks-i18n').textContent
+        );
     </script>
     <script src="{% static 'wagtail_localize_intentional_blanks/js/translation-editor.js' %}"></script>
 {% endblock %}

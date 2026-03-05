@@ -66,6 +66,14 @@ zip-safe = false
 include = ["wagtail_localize_intentional_blanks*"]
 exclude = ["tests*"]
 
+[tool.setuptools.package-data]
+wagtail_localize_intentional_blanks = [
+    "locale/**/*.po",
+    "locale/**/*.mo",
+    "templates/**/*.html",
+    "static/**/*",
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py39', 'py310', 'py311', 'py312', 'py313']

@@ -6,6 +6,7 @@ translation status and "do not translate" markers in templates.
 """
 
 from django import template
+from django.utils.translation import gettext as _
 
 from ..utils import get_source_fallback_stats, is_do_not_translate
 
@@ -50,3 +51,29 @@ def translation_stats(translation):
         dict: Statistics about translation
     """
     return get_source_fallback_stats(translation)
+
+
+@register.inclusion_tag("wagtail_localize_intentional_blanks/i18n_strings.html")
+def intentional_blanks_i18n():
+    """
+    Output a JSON script block with translated UI strings for JavaScript.
+
+    Usage:
+        {% load intentional_blanks %}
+        {% intentional_blanks_i18n %}
+    """
+    return {
+        "i18n_strings": {
+            "checkboxLabel": _("Mark 'Do Not Translate'"),
+            "markAll": _("Mark All 'Do Not Translate'"),
+            "unmarkAll": _("Unmark All 'Do Not Translate'"),
+            "marking": _("Marking..."),
+            "unmarking": _("Unmarking..."),
+            "usingSourceValue": _("Using source value"),
+            "markAllDescription": _("Mark All fields as 'Do Not Translate'"),
+            "failedToUpdate": _("Failed to update segment"),
+            "networkError": _("Network error occurred"),
+            "failedToMarkAll": _("Failed to mark all segments"),
+            "failedToUnmarkAll": _("Failed to unmark all segments"),
+        }
+    }

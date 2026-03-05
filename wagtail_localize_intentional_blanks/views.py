@@ -6,6 +6,8 @@ import logging
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
@@ -98,7 +100,10 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": f"Segment {segment_id} has no associated String. The translation may be corrupted.",
+                    "error": _(
+                        "Segment %(segment_id)s has no associated String. The translation may be corrupted."
+                    )
+                    % {"segment_id": segment_id},
                 },
                 status=400,
             )
@@ -109,7 +114,9 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": 'Invalid do_not_translate parameter. Must be "true" or "false".',
+                    "error": _(
+                        'Invalid do_not_translate parameter. Must be "true" or "false".'
+                    ),
                 },
                 status=400,
             )
@@ -118,10 +125,10 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
 
         if do_not_translate:
             mark_segment_do_not_translate(translation, segment, user=request.user)
-            message = "Segment marked as do not translate"
+            message = _("Segment marked as do not translate")
         else:
             unmark_segment_do_not_translate(translation, segment)
-            message = "Segment unmarked, ready for manual translation"
+            message = _("Segment unmarked, ready for manual translation")
 
         # Get the source text to display in UI
         source_text = segment.string.data if segment.string else ""
@@ -161,7 +168,7 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
 
     except Translation.DoesNotExist:
         return JsonResponse(
-            {"success": False, "error": "Translation not found"}, status=404
+            {"success": False, "error": _("Translation not found")}, status=404
         )
 
     except StringSegment.DoesNotExist:
@@ -171,7 +178,10 @@ def mark_segment_do_not_translate_view(request, translation_id, segment_id):
         return JsonResponse(
             {
                 "success": False,
-                "error": f"Segment {segment_id} not found. The translation may need to be re-synced.",
+                "error": _(
+                    "Segment %(segment_id)s not found. The translation may need to be re-synced."
+                )
+                % {"segment_id": segment_id},
             },
             status=404,
         )
@@ -214,7 +224,8 @@ def get_segment_status(request, translation_id, segment_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": f"Segment {segment_id} has no associated String.",
+                    "error": _("Segment %(segment_id)s has no associated String.")
+                    % {"segment_id": segment_id},
                 },
                 status=400,
             )
@@ -243,7 +254,7 @@ def get_segment_status(request, translation_id, segment_id):
 
     except Translation.DoesNotExist:
         return JsonResponse(
-            {"success": False, "error": "Translation not found"}, status=404
+            {"success": False, "error": _("Translation not found")}, status=404
         )
 
     except StringSegment.DoesNotExist:
@@ -253,7 +264,10 @@ def get_segment_status(request, translation_id, segment_id):
         return JsonResponse(
             {
                 "success": False,
-                "error": f"Segment {segment_id} not found. The translation may need to be re-synced.",
+                "error": _(
+                    "Segment %(segment_id)s not found. The translation may need to be re-synced."
+                )
+                % {"segment_id": segment_id},
             },
             status=404,
         )
@@ -332,7 +346,7 @@ def get_translation_status(request, translation_id):
 
     except Translation.DoesNotExist:
         return JsonResponse(
-            {"success": False, "error": "Translation not found"}, status=404
+            {"success": False, "error": _("Translation not found")}, status=404
         )
 
     except PermissionDenied as e:
@@ -381,7 +395,9 @@ def toggle_all_do_not_translate_view(request, translation_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": 'Invalid do_not_translate parameter. Must be "true" or "false".',
+                    "error": _(
+                        'Invalid do_not_translate parameter. Must be "true" or "false".'
+                    ),
                 },
                 status=400,
             )
@@ -400,7 +416,7 @@ def toggle_all_do_not_translate_view(request, translation_id):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": "No segments found for this translation.",
+                    "error": _("No segments found for this translation."),
                 },
                 status=400,
             )
@@ -414,7 +430,11 @@ def toggle_all_do_not_translate_view(request, translation_id):
                 )
                 segment_ids = [s.id for s in segments]
                 segment_data = {}
-                message = f"Marked {affected_count} segments"
+                message = ngettext(
+                    "Marked %(count)s segment",
+                    "Marked %(count)s segments",
+                    affected_count,
+                ) % {"count": affected_count}
             else:
                 # Unmark all segments using optimized batch operation
                 # Returns (affected_count, segment_data) where segment_data includes
@@ -423,7 +443,11 @@ def toggle_all_do_not_translate_view(request, translation_id):
                     translation, segments
                 )
                 segment_ids = list(segment_data.keys())
-                message = f"Unmarked {affected_count} segments"
+                message = ngettext(
+                    "Unmarked %(count)s segment",
+                    "Unmarked %(count)s segments",
+                    affected_count,
+                ) % {"count": affected_count}
 
         return JsonResponse(
             {
@@ -438,7 +462,7 @@ def toggle_all_do_not_translate_view(request, translation_id):
 
     except Translation.DoesNotExist:
         return JsonResponse(
-            {"success": False, "error": "Translation not found"}, status=404
+            {"success": False, "error": _("Translation not found")}, status=404
         )
 
     except PermissionDenied as e:

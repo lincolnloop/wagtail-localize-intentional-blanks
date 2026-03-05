@@ -1,0 +1,116 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-05 23:08+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps.py:8
+msgid "Wagtail Localize Intentional Blanks"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:67
+msgid "Mark 'Do Not Translate'"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:68
+msgid "Mark All 'Do Not Translate'"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:69
+msgid "Unmark All 'Do Not Translate'"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:70
+msgid "Marking..."
+msgstr ""
+
+#: templatetags/intentional_blanks.py:71
+msgid "Unmarking..."
+msgstr ""
+
+#: templatetags/intentional_blanks.py:72
+msgid "Using source value"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:73
+msgid "Mark All fields as 'Do Not Translate'"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:74
+msgid "Failed to update segment"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:75
+msgid "Network error occurred"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:76
+msgid "Failed to mark all segments"
+msgstr ""
+
+#: templatetags/intentional_blanks.py:77
+msgid "Failed to unmark all segments"
+msgstr ""
+
+#: views.py:103
+#, python-format
+msgid "Segment %(segment_id)s has no associated String. The translation may be corrupted."
+msgstr ""
+
+#: views.py:114 views.py:386
+msgid "Invalid do_not_translate parameter. Must be \"true\" or \"false\"."
+msgstr ""
+
+#: views.py:123
+msgid "Segment marked as do not translate"
+msgstr ""
+
+#: views.py:126
+msgid "Segment unmarked, ready for manual translation"
+msgstr ""
+
+#: views.py:166 views.py:248 views.py:337 views.py:451
+msgid "Translation not found"
+msgstr ""
+
+#: views.py:176 views.py:258
+#, python-format
+msgid "Segment %(segment_id)s not found. The translation may need to be re-synced."
+msgstr ""
+
+#: views.py:219
+#, python-format
+msgid "Segment %(segment_id)s has no associated String."
+msgstr ""
+
+#: views.py:405
+msgid "No segments found for this translation."
+msgstr ""
+
+#: views.py:420
+#, python-format
+msgid "Marked %(count)s segment"
+msgid_plural "Marked %(count)s segments"
+msgstr[0] ""
+msgstr[1] ""
+
+#: views.py:433
+#, python-format
+msgid "Unmarked %(count)s segment"
+msgid_plural "Unmarked %(count)s segments"
+msgstr[0] ""
+msgstr[1] ""

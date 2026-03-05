@@ -7,10 +7,13 @@
 (function () {
   "use strict";
 
+  // Translated strings passed from Django template via json_script
+  const i18n = window.INTENTIONAL_BLANKS_I18N || {};
+
   // Configuration (can be overridden by Django template)
   const config = {
     apiBaseUrl: window.INTENTIONAL_BLANKS_API_URL || "/intentional-blanks/",
-    labelText: "Mark 'Do Not Translate'",
+    labelText: i18n.checkboxLabel || "Mark 'Do Not Translate'",
     marker: "__DO_NOT_TRANSLATE__",
     backupSeparator: "|backup|",
     cssClasses: {
@@ -25,11 +28,18 @@
         unmark: "unmark",
       },
       buttonText: {
-        markAll: "Mark All 'Do Not Translate'",
-        unmarkAll: "Unmark All 'Do Not Translate'",
-        marking: "Marking...",
-        unmarking: "Unmarking...",
+        markAll: i18n.markAll || "Mark All 'Do Not Translate'",
+        unmarkAll: i18n.unmarkAll || "Unmark All 'Do Not Translate'",
+        marking: i18n.marking || "Marking...",
+        unmarking: i18n.unmarking || "Unmarking...",
       },
+    },
+    messages: {
+      failedToUpdate: i18n.failedToUpdate || "Failed to update segment",
+      networkError: i18n.networkError || "Network error occurred",
+      failedToMarkAll: i18n.failedToMarkAll || "Failed to mark all segments",
+      failedToUnmarkAll:
+        i18n.failedToUnmarkAll || "Failed to unmark all segments",
     },
   };
 
@@ -406,14 +416,14 @@
         } else {
           // Revert checkbox state on error
           checkbox.checked = !doNotTranslate;
-          showNotification("error", data.error || "Failed to update segment");
+          showNotification("error", data.error || config.messages.failedToUpdate);
         }
       })
       .catch((error) => {
         console.error("Error toggling do not translate:", error);
         // Revert checkbox state on error
         checkbox.checked = !doNotTranslate;
-        showNotification("error", "Network error occurred");
+        showNotification("error", config.messages.networkError);
       })
       .finally(() => {
         checkbox.disabled = false;
@@ -535,7 +545,7 @@
     // Create badge element
     const badge = document.createElement("span");
     badge.className = "do-not-translate-badge";
-    badge.textContent = "Using source value";
+    badge.textContent = i18n.usingSourceValue || "Using source value";
 
     // Try to find the field name (h4 element) and append badge to it
     const fieldName = container.querySelector("h4");
@@ -774,7 +784,8 @@
     button.addEventListener("click", handleBulkActionClick);
 
     const paragraph = document.createElement("p");
-    paragraph.textContent = "Mark All fields as 'Do Not Translate'";
+    paragraph.textContent =
+      i18n.markAllDescription || "Mark All fields as 'Do Not Translate'";
 
     container.appendChild(paragraph);
     container.appendChild(button);
@@ -963,14 +974,14 @@
         } else {
           showNotification(
             "error",
-            data.error || "Failed to mark all segments",
+            data.error || config.messages.failedToMarkAll,
           );
           throw new Error(data.error);
         }
       })
       .catch((error) => {
         console.error("Error marking all segments:", error);
-        showNotification("error", "Network error occurred");
+        showNotification("error", config.messages.networkError);
         throw error;
       });
   }
@@ -1036,14 +1047,14 @@
         } else {
           showNotification(
             "error",
-            data.error || "Failed to unmark all segments",
+            data.error || config.messages.failedToUnmarkAll,
           );
           throw new Error(data.error);
         }
       })
       .catch((error) => {
         console.error("Error unmarking all segments:", error);
-        showNotification("error", "Network error occurred");
+        showNotification("error", config.messages.networkError);
         throw error;
       });
   }
