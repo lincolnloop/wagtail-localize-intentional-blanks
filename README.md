@@ -137,6 +137,31 @@ print(f"{stats['manually_translated']} segments manually translated")
 - Wagtail 5.2+
 - wagtail-localize 1.8+
 
+## Internationalization (i18n)
+
+The plugin UI is translatable. Django will automatically select the right language based on the user's browser settings (requires `django.middleware.locale.LocaleMiddleware` in your `MIDDLEWARE`).
+
+### Adding a new language
+
+1. From the `wagtail_localize_intentional_blanks` directory, generate a `.po` file for the new locale:
+
+```bash
+cd wagtail_localize_intentional_blanks
+django-admin makemessages -l <language_code> --no-wrap
+```
+
+2. Edit `locale/<language_code>/LC_MESSAGES/django.po` and fill in the `msgstr` values.
+
+3. Compile the translations:
+
+```bash
+django-admin compilemessages -l <language_code>
+```
+
+4. Submit a pull request with both the `.po` and `.mo` files.
+
+For more details, see Django's [translation documentation](https://docs.djangoproject.com/en/stable/topics/i18n/translation/).
+
 ## Release
 
 In order to make a release, we add a git tag and push it to GitHub. We have a GitHub Action that releases the code to PyPI when we add a new tag.
