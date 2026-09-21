@@ -49,6 +49,8 @@ dev = [
     "flake8>=6.0",
     "isort>=5.12",
     "mypy>=1.0",
+    # Pin ruff exactly, to be specific about which lint rules are used
+    "ruff==0.15.5",
 ]
 docs = [
     "mkdocs>=1.5",
