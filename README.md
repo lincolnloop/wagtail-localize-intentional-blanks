@@ -133,9 +133,21 @@ print(f"{stats['manually_translated']} segments manually translated")
 ## Requirements
 
 - Python 3.10+
-- Django 4.2+
-- Wagtail 5.2+
-- wagtail-localize 1.8+
+- Django 5.2+
+- Wagtail 7.0+
+- wagtail-localize 1.14+
+
+The Python, Django, and Wagtail versions follow `wagtail-localize`. Its 1.14
+requires Wagtail 7.0+ & Django 5.2+, so older combinations are not installable.
+
+These are the combinations CI tests. They mirror the hatch matrix in
+`pyproject.toml`
+
+| Python | Django | Wagtail |
+|---|---|---|
+| 3.10, 3.11 | 5.2 | 7.0 LTS |
+| 3.12 | 6.0 | 7.4 LTS |
+| 3.13, 3.14 | 6.1 | 8.0 |
 
 ## Internationalization (i18n)
 
@@ -193,7 +205,7 @@ This installs the package in editable mode along with testing tools (pytest, bla
 
 ### Running Tests
 
-Run the test suite with pytest:
+Against the versions in your own virtualenv, run the suite with pytest:
 ```bash
 pytest
 ```
@@ -207,6 +219,55 @@ Run specific test files:
 ```bash
 pytest tests/test_utils.py
 pytest tests/test_views.py
+```
+
+### Running Tests Against Every Supported Version
+
+The full support matrix is defined once, as a [hatch](https://hatch.pypa.io)
+environment matrix in `pyproject.toml`, and CI runs tests against the matrix.
+`uvx` fetches hatch on demand, so there is nothing to install beyond
+[uv](https://docs.astral.sh/uv/):
+
+```bash
+uvx hatch run test:cov
+```
+
+That builds one isolated environment per combination and runs the suite in each.
+The environments are cached outside the repository, so only the first creates
+them.
+
+To run a single interpreter's combinations:
+
+```bash
+uvx hatch run +py=3.12 test:cov
+```
+
+To run one exact combination, and to pass arguments through to pytest:
+
+```bash
+uvx hatch env show      # list the environment names
+uvx hatch run test.py3.10-django5.2-wagtail7.0:run -q -k views
+```
+
+There is also an unpinned environment that resolves whatever Wagtail, Django and
+wagtail-localize are current. CI runs it as advisory, so an upstream release that
+breaks this package shows up before it is released upstream:
+
+```bash
+uvx hatch run latest:cov
+```
+
+Hatch needs the interpreters to already exist on your machine; it will not fetch
+them for you. Install them once with:
+
+```bash
+uv python install 3.10 3.11 3.12 3.13 3.14
+```
+
+To delete the cached environments (after changing the matrix, say):
+
+```bash
+uvx hatch env prune
 ```
 
 ### Code Quality

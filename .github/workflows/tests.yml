@@ -10,55 +10,52 @@ on:
 
 jobs:
   test:
-    name: ${{ matrix.name }}
+    name: py${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental || false }}
+    # Python 3.14 is advisory: it is the newest interpreter and the first place
+    # an upstream incompatibility tends to land, so it reports without blocking.
+    continue-on-error: ${{ matrix.python-version == '3.14' }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: "floor: py3.10 / wagtail 7.0 LTS / dj5.2"
-            python: "3.10"
-            pins: 'django~=5.2.0 wagtail~=7.0.0 wagtail-localize~=1.14.0'
-          - name: "py3.11 / wagtail 7.0 LTS / dj5.2"
-            python: "3.11"
-            pins: 'django~=5.2.0 wagtail~=7.0.0 wagtail-localize~=1.14.0'
-          - name: "py3.12 / wagtail 7.4 LTS / dj6.0"
-            python: "3.12"
-            pins: 'django~=6.0.0 wagtail~=7.4.0 wagtail-localize~=1.14.0'
-          - name: "py3.13 / wagtail 8.0 / dj6.1"
-            python: "3.13"
-            pins: 'django~=6.1.0 wagtail~=8.0.0 wagtail-localize~=1.14.0'
-          - name: "edge: py3.14 / wagtail 8.0 / dj6.1"
-            python: "3.14"
-            pins: 'django~=6.1.0 wagtail~=8.0.0 wagtail-localize~=1.14.0'
-            experimental: true
-          # No pins, so this installs whatever Wagtail / Django / wagtail-localize
-          # are current and a breaking upstream release surfaces here first.
-          # Advisory only - it cannot fail the build.
-          - name: "latest: unpinned dependencies"
-            python: "3.13"
-            pins: ''
-            experimental: true
+        # Interpreters only. Which Django/Wagtail combinations each one covers
+        # is declared by the hatch matrix in pyproject.toml, which `+py=`
+        # filters to this job's interpreter. The support matrix has exactly
+        # one home and this list only changes when a Python version does.
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      # Pinned to an exact version rather than a floating major: setup-uv
+      # publishes no major tag past v7, so tracking its current release means
+      # naming the version and bumping it by hand.
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ matrix.python-version }}
+          # hatch resolves `py3.X` from the interpreters on PATH, and the
+          # activated environment is what puts this job's interpreter there.
+          activate-environment: true
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]" ${{ matrix.pins }}
+      - name: Test
+        run: uvx hatch run +py=${{ matrix.python-version }} test:cov
 
-      - name: Report installed versions
-        run: pip list | grep -Ei 'django|wagtail' || true
+  # Separate from the matrix because this one pins nothing. Instead, it resolves
+  # whatever Wagtail, Django, wagtail-localize are current, so a breaking
+  # upstream release shows up here before it reaches a release of this package.
+  latest:
+    name: "latest: unpinned dependencies"
+    runs-on: ubuntu-latest
+    continue-on-error: true
 
-      - name: Run tests
-        run: pytest --cov
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.13"
+          activate-environment: true
+      - name: Test
+        run: uvx hatch run latest:cov
 
   lint:
     runs-on: ubuntu-latest

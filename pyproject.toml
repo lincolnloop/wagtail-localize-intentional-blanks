@@ -76,6 +76,63 @@ wagtail_localize_intentional_blanks = [
     "static/**/*",
 ]
 
+# The supported framework matrix. `hatch run test:cov` runs every combination
+# locally; CI filters it to one interpreter per job with `+py=`. This is the
+# only place the matrix is defined. Adding a combination here needs no change
+# to the workflow unless the list of Python versions itself changes.
+[tool.hatch.envs.test]
+features = ["dev"]
+installer = "uv"
+matrix-name-format = "{variable}{value}"
+
+[tool.hatch.envs.test.scripts]
+run = "pytest {args}"
+cov = "pytest --cov {args}"
+
+# We use three tables, because the rows have different numbers of combinations:
+# Wagtail 7.0 requires Django 5.2 or earlier, and does not support Python 3.14,
+# Django 6.x requires Python 3.12+. A single table would be more difficult
+# to read.
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11"]
+django = ["5.2"]
+wagtail = ["7.0"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.12"]
+django = ["6.0"]
+wagtail = ["7.4"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.13", "3.14"]
+django = ["6.1"]
+wagtail = ["8.0"]
+
+# The matrix variables above are just labels; these turn them into real pins.
+[tool.hatch.envs.test.overrides]
+matrix.django.dependencies = [
+    { value = "django~=5.2.0", if = ["5.2"] },
+    { value = "django~=6.0.0", if = ["6.0"] },
+    { value = "django~=6.1.0", if = ["6.1"] },
+]
+matrix.wagtail.dependencies = [
+    { value = "wagtail~=7.0.0", if = ["7.0"] },
+    { value = "wagtail~=7.4.0", if = ["7.4"] },
+    { value = "wagtail~=8.0.0", if = ["8.0"] },
+]
+
+# No pins at all, so this resolves whatever Wagtail / Django / wagtail-localize
+# are current. Advisory in CI: a breaking upstream release surfaces here first
+# without failing the build.
+[tool.hatch.envs.latest]
+features = ["dev"]
+installer = "uv"
+python = "3.13"
+
+[tool.hatch.envs.latest.scripts]
+run = "pytest {args}"
+cov = "pytest --cov {args}"
+
 [tool.black]
 line-length = 100
 target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
