@@ -10,24 +10,52 @@ on:
 
 jobs:
   test:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          - name: "floor: py3.10 / wagtail 7.0 LTS / dj5.2"
+            python: "3.10"
+            pins: 'django~=5.2.0 wagtail~=7.0.0 wagtail-localize~=1.14.0'
+          - name: "py3.11 / wagtail 7.0 LTS / dj5.2"
+            python: "3.11"
+            pins: 'django~=5.2.0 wagtail~=7.0.0 wagtail-localize~=1.14.0'
+          - name: "py3.12 / wagtail 7.4 LTS / dj6.0"
+            python: "3.12"
+            pins: 'django~=6.0.0 wagtail~=7.4.0 wagtail-localize~=1.14.0'
+          - name: "py3.13 / wagtail 8.0 / dj6.1"
+            python: "3.13"
+            pins: 'django~=6.1.0 wagtail~=8.0.0 wagtail-localize~=1.14.0'
+          - name: "edge: py3.14 / wagtail 8.0 / dj6.1"
+            python: "3.14"
+            pins: 'django~=6.1.0 wagtail~=8.0.0 wagtail-localize~=1.14.0'
+            experimental: true
+          # No pins, so this installs whatever Wagtail / Django / wagtail-localize
+          # are current and a breaking upstream release surfaces here first.
+          # Advisory only - it cannot fail the build.
+          - name: "latest: unpinned dependencies"
+            python: "3.13"
+            pins: ''
+            experimental: true
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev]" ${{ matrix.pins }}
+
+      - name: Report installed versions
+        run: pip list | grep -Ei 'django|wagtail' || true
 
       - name: Run tests
         run: pytest --cov
