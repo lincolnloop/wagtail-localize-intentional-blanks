@@ -62,10 +62,10 @@ This library works by:
 
 1. **Adding UI controls** - JavaScript adds "Do Not Translate" checkboxes to the translation editor
 2. **Storing markers** - When checked, a marker string (`__DO_NOT_TRANSLATE__`) is stored in the translation
-3. **Automatic replacement** - When rendering pages, a patch intercepts segment retrieval and replaces markers with source values
+3. **Automatic replacement** - When rendering pages, signal handlers intercept segment retrieval and replace markers with source values
 4. **Progress tracking** - Marked segments count as "translated" for progress calculation
 
-**Key benefit:** No code changes to your blocks or models. The library handles everything automatically through patching wagtail-localize's internal methods.
+**Key benefit:** No code changes to your blocks or models. The library handles everything automatically through wagtail-localize's signal-based extension mechanism.
 
 ## Usage
 

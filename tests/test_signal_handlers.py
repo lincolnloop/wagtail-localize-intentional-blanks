@@ -1,31 +1,23 @@
 """
-Unit tests for patch module.
+Unit tests for signal handlers.
 
-Tests that the monkey-patch correctly replaces marker strings with source values
-when rendering translated pages.
+Tests that the signal handlers correctly replace marker strings with source
+values when rendering translated pages.
 """
 
-import json
 import pytest
-import uuid
 from django.contrib.auth import get_user_model
-from django.contrib.contenttypes.models import ContentType
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from wagtail.models import Locale, Page
 from wagtail_localize.models import (
     MissingTranslationError,
-    OverridableSegment,
-    RelatedObjectSegment,
     String,
     StringSegment,
     StringTranslation,
-    Template,
-    TemplateSegment,
     Translation,
     TranslationContext,
     TranslationSource,
-    TranslatableObject,
 )
 
 from wagtail_localize_intentional_blanks.constants import (
@@ -39,8 +31,14 @@ User = get_user_model()
 
 
 @pytest.mark.django_db
-class TestPatchFunctionality(TestCase):
-    """Test that the patch correctly handles intentional blanks."""
+class TestSignalHandlerFunctionality(TestCase):
+    """
+    Test that signal handlers handle intentional blanks for _get_segments_for_translation().
+
+    When calling TranslationSource._get_segments_for_translation(), the signal
+    handlers should correctly integrate with wagtail-localize, so that the
+    expected values are set.
+    """
 
     def setUp(self):
         """Set up test data."""
@@ -73,7 +71,7 @@ class TestPatchFunctionality(TestCase):
             target_locale=self.target_locale,
         )
 
-    def test_patch_replaces_plain_marker_with_source_value(self):
+    def test_replaces_plain_marker_with_source_value(self):
         """Test that _get_segments_for_translation replaces plain marker with source value."""
         # Create a string segment with source value
         source_value = "English Source Text"
@@ -101,7 +99,7 @@ class TestPatchFunctionality(TestCase):
         )
         assert st.data == DO_NOT_TRANSLATE_MARKER
 
-        # Get segments for translation using the patched method
+        # Get segments for translation
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
         segments = self.source._get_segments_for_translation(
             self.target_locale, fallback=True
@@ -122,7 +120,7 @@ class TestPatchFunctionality(TestCase):
             f"Expected to find source value '{source_value}' in segments, but it was not found"
         )
 
-    def test_patch_replaces_marker_with_backup_using_source_value(self):
+    def test_replaces_marker_with_backup_using_source_value(self):
         """Test that marker with encoded backup is replaced with source value."""
         # Create a string segment with source value
         source_value = "English Source Text"
@@ -160,7 +158,7 @@ class TestPatchFunctionality(TestCase):
             st.data == f"{DO_NOT_TRANSLATE_MARKER}{BACKUP_SEPARATOR}French Translation"
         )
 
-        # Get segments for translation using the patched method
+        # Get segments for translation
         # Use fallback=True to handle automatically created page segments (title, slug, etc)
         segments = self.source._get_segments_for_translation(
             self.target_locale, fallback=True
@@ -176,7 +174,7 @@ class TestPatchFunctionality(TestCase):
 
         assert found, f"Expected to find source value '{source_value}' in segments"
 
-    def test_patch_does_not_affect_normal_translations(self):
+    def test_does_not_affect_normal_translations(self):
         """Test that normal translations are returned unchanged."""
         # Create a string segment
         source_value = "English Source"
@@ -222,10 +220,11 @@ class TestPatchFunctionality(TestCase):
             f"Expected to find translated value '{translated_value}' in segments"
         )
 
-    def test_patch_handles_mixed_translations(self):
-        """Test that patch handles mix of marked and normal translations."""
+    def test_handles_mixed_translations(self):
+        """Test that signal handlers handle mix of marked and normal translations."""
         # Create multiple segments
         segments_data = [
+            # (source_val, trans_val, mark_as_dnt),
             ("source1", "translation1", False),  # Normal translation
             ("source2", None, True),  # Marked do not translate
             ("source3", "translation3", False),  # Normal translation
@@ -307,8 +306,8 @@ class TestPatchFunctionality(TestCase):
         )
 
     @override_settings(WAGTAIL_LOCALIZE_INTENTIONAL_BLANKS_ENABLED=False)
-    def test_patch_disabled_when_feature_disabled(self):
-        """Test that patch does not apply when feature is disabled."""
+    def test_disabled_when_feature_disabled(self):
+        """Test that signal handler does not apply when feature is disabled."""
         # Create a string segment
         source_value = "English Source"
         string = String.objects.create(
@@ -335,7 +334,7 @@ class TestPatchFunctionality(TestCase):
         )
         assert st.data == DO_NOT_TRANSLATE_MARKER
 
-        # With feature disabled, the patch is bypassed and markers are NOT replaced
+        # With feature disabled, the signal handler is bypassed and markers are NOT replaced.
         # Since a translation exists (the marker), wagtail-localize returns it as-is
         # Note: We use fallback=True to handle the page's auto-created segments
         segments = self.source._get_segments_for_translation(
@@ -352,8 +351,8 @@ class TestPatchFunctionality(TestCase):
 
         assert found_marker, "With feature disabled, marker should NOT be replaced"
 
-    def test_patch_handles_empty_translation_source(self):
-        """Test that patch handles pages with no string segments gracefully."""
+    def test_handles_empty_translation_source(self):
+        """Test that signal handlers handle pages with no string segments gracefully."""
         # Create a minimal page with no additional content
         empty_page = Page(title="Empty", slug="empty-page", locale=self.source_locale)
         self.root_page.add_child(instance=empty_page)
@@ -372,11 +371,12 @@ class TestPatchFunctionality(TestCase):
             self.target_locale, fallback=True
         )
 
-        # Should return empty or minimal segments
+        # Should return minimal segments (just the page's title and slug).
         assert isinstance(segments, list)
+        assert [segment.path for segment in segments] == ["title", "slug"]
 
-    def test_patch_preserves_segment_order(self):
-        """Test that patch preserves the order of segments."""
+    def test_preserves_segment_order(self):
+        """Test that signal handlers preserve the order of segments."""
         # Create multiple segments with specific order
         segment_data = [
             ("first", 0),
@@ -426,7 +426,7 @@ class TestPatchFunctionality(TestCase):
             elif string_segment.string.data == "third":
                 assert string_segment.order == 2
 
-    def test_patch_raises_missing_translation_error_without_fallback(self):
+    def test_raises_missing_translation_error_without_fallback(self):
         """Test that MissingTranslationError is raised when translation is missing and fallback=False."""
         # Create a string segment without translation
         source_value = "Untranslated Text"
@@ -452,320 +452,6 @@ class TestPatchFunctionality(TestCase):
             self.source._get_segments_for_translation(
                 self.target_locale, fallback=False
             )
-
-    def test_patch_handles_template_segments(self):
-        """Test that patch correctly processes template segments."""
-        # Create a template
-        template = Template.objects.create(
-            uuid=uuid.uuid4(),
-            template_format="html",
-            template="<div>{{ variable }}</div>",
-            string_count=0,
-        )
-
-        # Create a template segment
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.template_field", defaults={"object": self.source.object}
-        )
-        TemplateSegment.objects.create(
-            source=self.source,
-            template=template,
-            context=context_obj,
-            order=100,
-        )
-
-        # Get segments for translation
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # Find the template segment
-        template_segments = [
-            s for s in segments if s.__class__.__name__ == "TemplateSegmentValue"
-        ]
-        assert len(template_segments) > 0, "Should have at least one template segment"
-
-        # Verify template content
-        template_seg = template_segments[0]
-        assert template_seg.format == "html"
-        assert template_seg.template == "<div>{{ variable }}</div>"
-        assert template_seg.order == 100
-
-    def test_patch_handles_related_object_segments(self):
-        """Test that patch correctly processes related object segments."""
-        # Create a translatable target page
-        target_page = Page(
-            title="Related Page EN", slug="related-en", locale=self.source_locale
-        )
-        self.root_page.add_child(instance=target_page)
-
-        # Create translated version
-        target_page.copy_for_translation(self.target_locale)
-
-        # Create a translatable object
-        page_ct = ContentType.objects.get_for_model(Page)
-        translatable_obj = TranslatableObject.objects.get_or_create(
-            content_type=page_ct, translation_key=target_page.translation_key
-        )[0]
-
-        # Create a related object segment
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.related_field", defaults={"object": self.source.object}
-        )
-        RelatedObjectSegment.objects.create(
-            source=self.source,
-            object=translatable_obj,
-            context=context_obj,
-            order=200,
-        )
-
-        # Get segments for translation
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # Find the related object segment
-        related_segments = [
-            s for s in segments if s.__class__.__name__ == "RelatedObjectSegmentValue"
-        ]
-        assert len(related_segments) > 0, (
-            "Should have at least one related object segment"
-        )
-
-        # Verify related object uses translation_key (UUID), not pk
-        related_seg = related_segments[0]
-        assert related_seg.content_type == page_ct
-        assert related_seg.translation_key == target_page.translation_key
-        assert related_seg.order == 200
-
-    def test_patch_handles_related_object_segments_with_fallback(self):
-        """Test that patch uses fallback for related objects when translation doesn't exist."""
-        # Create a target page WITHOUT translation
-        target_page = Page(
-            title="Untranslated Related",
-            slug="untranslated-en",
-            locale=self.source_locale,
-        )
-        self.root_page.add_child(instance=target_page)
-
-        # Do NOT create translated version
-
-        # Create a translatable object
-        page_ct = ContentType.objects.get_for_model(Page)
-        translatable_obj = TranslatableObject.objects.get_or_create(
-            content_type=page_ct, translation_key=target_page.translation_key
-        )[0]
-
-        # Create a related object segment
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.related_fallback_field", defaults={"object": self.source.object}
-        )
-        RelatedObjectSegment.objects.create(
-            source=self.source,
-            object=translatable_obj,
-            context=context_obj,
-            order=300,
-        )
-
-        # Get segments with fallback=True
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # When fallback is used and translation doesn't exist, should return
-        # OverridableSegmentValue with source object's pk (not RelatedObjectSegmentValue)
-        overridable_segments = [
-            s for s in segments if s.__class__.__name__ == "OverridableSegmentValue"
-        ]
-
-        # Find the one for our related field
-        related_fallback_segments = [
-            s for s in overridable_segments if "related_fallback_field" in s.path
-        ]
-        assert len(related_fallback_segments) > 0, (
-            "Should have OverridableSegmentValue for untranslated related object"
-        )
-
-        # Verify it contains the source page's pk
-        related_seg = related_fallback_segments[0]
-        assert related_seg.data == target_page.pk
-
-    def test_patch_handles_overridable_segments(self):
-        """Test that patch correctly processes overridable segments."""
-        # Create an overridable segment with a JSON object
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.overridable_field", defaults={"object": self.source.object}
-        )
-        OverridableSegment.objects.create(
-            source=self.source,
-            context=context_obj,
-            data_json='{"value": "test data"}',
-            order=400,
-        )
-
-        # Get segments for translation
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # Find the overridable segment
-        overridable_segments = [
-            s for s in segments if s.__class__.__name__ == "OverridableSegmentValue"
-        ]
-        assert len(overridable_segments) > 0, (
-            "Should have at least one overridable segment"
-        )
-
-        # Verify overridable content - data should be parsed from JSON
-        overridable_seg = overridable_segments[0]
-        assert overridable_seg.data == {"value": "test data"}
-        assert overridable_seg.order == 400
-
-    def test_patch_handles_overridable_href_segments_without_double_quoting(self):
-        """Test that href values in overridable segments don't get double-quoted.
-
-        Regression test for bug where href values like '/en/about' were being
-        rendered as <a href='"/en/about"'> (with embedded quotes) because the
-        data_json field was not being parsed.
-        """
-        # Create an overridable segment with an href value (as stored for rich text links)
-        # In wagtail-localize, hrefs from rich text are stored as JSON strings
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.href_field", defaults={"object": self.source.object}
-        )
-        # The href value is stored as a JSON-encoded string
-        href_value = "/en/about-page"
-        OverridableSegment.objects.create(
-            source=self.source,
-            context=context_obj,
-            data_json=json.dumps(href_value),  # Results in '"/en/about-page"'
-            order=500,
-        )
-
-        # Get segments for translation
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # Find our href segment
-        overridable_segments = [
-            s
-            for s in segments
-            if s.__class__.__name__ == "OverridableSegmentValue"
-            and "href_field" in s.path
-        ]
-        assert len(overridable_segments) == 1, (
-            "Should have exactly one href overridable segment"
-        )
-
-        overridable_seg = overridable_segments[0]
-
-        # The data should be the actual href string, not a JSON-encoded string
-        # Bug: Before fix, this would be '"/en/about-page"' (with embedded quotes)
-        # Fixed: Should be '/en/about-page' (plain string)
-        assert overridable_seg.data == href_value, (
-            f"href should be '{href_value}', not '{overridable_seg.data}' - "
-            "data_json was not properly parsed from JSON"
-        )
-
-        # Verify no embedded quotes that would cause HTML rendering issues
-        assert not overridable_seg.data.startswith('"'), (
-            "href should not start with a quote - JSON was not parsed"
-        )
-        assert not overridable_seg.data.endswith('"'), (
-            "href should not end with a quote - JSON was not parsed"
-        )
-
-    def test_patch_uses_translated_href_not_source_href(self):
-        """Test that translated/overridden hrefs are used instead of source hrefs."""
-        from wagtail_localize.models import OverridableSegment, SegmentOverride
-
-        # Create an overridable segment with a source href
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.translated_href_field",
-            defaults={"object": self.source.object},
-        )
-        source_href = "/en/original-page"
-        OverridableSegment.objects.create(
-            source=self.source,
-            context=context_obj,
-            data_json=json.dumps(source_href),
-            order=600,
-        )
-
-        # Create a SegmentOverride with a translated href for the target locale
-        translated_href = "/fr/page-traduite"
-        SegmentOverride.objects.create(
-            locale=self.target_locale,
-            context=context_obj,
-            data_json=json.dumps(translated_href),
-        )
-
-        # Get segments for translation (use fallback=True to avoid MissingTranslationError
-        # for other segments like title/slug that don't have translations in this test)
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # Find our href segment
-        overridable_segments = [
-            s
-            for s in segments
-            if s.__class__.__name__ == "OverridableSegmentValue"
-            and "translated_href_field" in s.path
-        ]
-        assert len(overridable_segments) == 1, (
-            "Should have exactly one translated href segment"
-        )
-
-        overridable_seg = overridable_segments[0]
-
-        # The data should be the TRANSLATED href, not the source href
-        assert overridable_seg.data == translated_href, (
-            f"href should be translated value '{translated_href}', "
-            f"not source value '{overridable_seg.data}'"
-        )
-
-    def test_patch_falls_back_to_source_href_when_no_override(self):
-        """Test that source href is used when no override exists and fallback=True."""
-        from wagtail_localize.models import OverridableSegment
-
-        # Create an overridable segment with a source href (no override)
-        context_obj, _ = TranslationContext.objects.get_or_create(
-            path="test.fallback_href_field",
-            defaults={"object": self.source.object},
-        )
-        source_href = "/en/source-only-page"
-        OverridableSegment.objects.create(
-            source=self.source,
-            context=context_obj,
-            data_json=json.dumps(source_href),
-            order=700,
-        )
-
-        # Get segments for translation WITH fallback mode
-        segments = self.source._get_segments_for_translation(
-            self.target_locale, fallback=True
-        )
-
-        # Find our href segment
-        overridable_segments = [
-            s
-            for s in segments
-            if s.__class__.__name__ == "OverridableSegmentValue"
-            and "fallback_href_field" in s.path
-        ]
-        assert len(overridable_segments) == 1, (
-            "Should have exactly one fallback href segment"
-        )
-
-        overridable_seg = overridable_segments[0]
-
-        # With fallback=True and no override, should use source href
-        assert overridable_seg.data == source_href, (
-            f"In fallback mode without override, href should be source value "
-            f"'{source_href}', not '{overridable_seg.data}'"
-        )
 
     def test_sync_via_update_translations_view_preserves_markers(self):
         """

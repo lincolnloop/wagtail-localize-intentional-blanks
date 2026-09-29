@@ -21,10 +21,10 @@ class IntentionalBlanksConfig(AppConfig):
                 "wagtail-localize must be installed to use wagtail-localize-intentional-blanks. Install it with: pip install wagtail-localize"
             )
 
-        # Apply monkey-patch to wagtail-localize
-        from .patch import apply_patch
+        # Register signal handlers for wagtail-localize integration
+        from .signal_handlers import register_signal_handlers
 
-        apply_patch()
+        register_signal_handlers()
 
         # Import wagtail hooks
         from . import wagtail_hooks  # noqa
